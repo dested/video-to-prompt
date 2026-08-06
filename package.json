@@ -1,0 +1,30 @@
+{
+  "name": "video-to-prompt",
+  "version": "0.1.0",
+  "description": "Distill a narrated screen recording into an agent-ready prompt package: deduped keyframes, contact sheets, a transcript, and a markdown report built for LLM consumption.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Sal Aiello (https://github.com/dested)",
+  "repository": "github:dested/video-to-prompt",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "rimraf dist && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
+    "prettier": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.0"
+  }
+}
