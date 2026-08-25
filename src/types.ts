@@ -70,6 +70,8 @@ export interface TranscriptSegment {
   /** Position on the walkthrough's unified axis, ms. Set only when a human moved it; absent = computed from t. */
   tl?: number
   text: string
+  /** 1-based speaker rank AFTER normalization (rank 1 = most talk time); absent when diarization didn't run. */
+  speaker?: number
 }
 
 /** The pointer as it applies to one keyframe. Only a live screen recorder can set it. */

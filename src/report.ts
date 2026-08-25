@@ -124,6 +124,22 @@ function spokenMs(seg: TranscriptSegment): number {
   return seg.d ?? Math.max(MIN_LINE_MS, seg.text.split(/\s+/).length * WORD_MS)
 }
 
+/** The distinct speaker ranks present across these segments. Two or more = worth labeling. */
+function speakerSet(segs: TranscriptSegment[]): Set<number> {
+  const set = new Set<number>()
+  for (const seg of segs) if (seg.speaker !== undefined) set.add(seg.speaker)
+  return set
+}
+
+/**
+ * A spoken line's text as it renders — prefixed `S1: ` etc only when there are
+ * ≥2 voices to tell apart. The prefix is a render-time thing; `seg.text` itself
+ * is never touched, so the polish pass keeps seeing the raw words.
+ */
+function labeledText(seg: TranscriptSegment, label: boolean): string {
+  return label && seg.speaker !== undefined ? `S${seg.speaker}: ${seg.text}` : seg.text
+}
+
 /** A spoken line plus the window of screen time it plausibly refers to. Take-local. */
 interface Spoken {
   seg: TranscriptSegment
@@ -302,12 +318,12 @@ interface Beat {
   lines: string[]
 }
 
-function lineBeat(line: Line, shots: Shot[], hasSheets: boolean): Beat {
+function lineBeat(line: Line, shots: Shot[], hasSheets: boolean, labelSpeakers: boolean): Beat {
   return {
     pos: line.pos,
     lines: [
       '',
-      `> **${mmss(line.pos)}–${mmss(line.end)}** ${line.seg.text}`,
+      `> **${mmss(line.pos)}–${mmss(line.end)}** ${labeledText(line.seg, labelSpeakers)}`,
       `> ↳ about ${coverage(shots, line, hasSheets)}`,
     ],
   }
@@ -373,11 +389,24 @@ function runLine(run: Shot[]): string {
 }
 
 /** How much to trust the words — the ASR error that sent an agent to the wrong file. */
-function transcriptCaveat(recordings: Recording[], opts: ResolvedOptions): string[] {
+function transcriptCaveat(
+  recordings: Recording[],
+  opts: ResolvedOptions,
+  labelSpeakers: boolean
+): string[] {
   const spoken = recordings.filter((r) => r.meta.transcript.length)
   if (!spoken.length) return []
+  // Only printed when more than one voice was heard; distinct voices are labeled
+  // S1 (most speech) onward.
+  const voices = labelSpeakers
+    ? ['> More than one voice was captured — distinct voices are labeled S1 (most speech) onward.']
+    : []
   if (spoken.every((r) => r.meta.reviewed)) {
-    return ['> The speaker read this transcript back and corrected it — the wording is theirs.', '']
+    return [
+      '> The speaker read this transcript back and corrected it — the wording is theirs.',
+      ...voices,
+      '',
+    ]
   }
   const engines = [...new Set(spoken.map((r) => engineName(r.meta, opts)))]
   const some = spoken.some((r) => r.meta.reviewed)
@@ -387,6 +416,7 @@ function transcriptCaveat(recordings: Recording[], opts: ResolvedOptions): strin
       : `> The transcript is machine-transcribed (${engines.join(' / ')}) and **was not checked by the speaker**.`,
     '> Speech recognition mangles exactly the words that matter most — nouns, units, small numbers.',
     '> Where a word contradicts the frames or the code, believe the frames.',
+    ...voices,
     '',
   ]
 }
@@ -442,7 +472,8 @@ function walkthroughBlocks(
   traces: Trace[],
   shown: Set<string>,
   cuts: number[],
-  hasSheets: boolean
+  hasSheets: boolean,
+  labelSpeakers: boolean
 ): Block[] {
   interface Entry {
     pos: number
@@ -473,7 +504,11 @@ function walkthroughBlocks(
     .map((chapter) => {
       const frames = chapter.flatMap((e) => (e.shot ? [e.shot] : []))
       const beats = chapter.flatMap((e) =>
-        e.line ? [lineBeat(e.line, shots, hasSheets)] : e.trace ? [traceBeat(e.trace)] : []
+        e.line
+          ? [lineBeat(e.line, shots, hasSheets, labelSpeakers)]
+          : e.trace
+            ? [traceBeat(e.trace)]
+            : []
       )
       const opener = chapter.find((e) => e.line)?.line
       const out: string[] = []
@@ -557,6 +592,9 @@ export function buildReport(
   const lines = axisLines(takes, spans)
   const traces = axisEvents(takes, spans)
   const shown = inlineShots(shots, lines, takes)
+  // One decision for the whole report: label voices only when ≥2 were heard, so
+  // S1 means the same (dominant) voice everywhere it appears.
+  const labelSpeakers = speakerSet(lines.map((l) => l.seg)).size >= 2
 
   // The span the evidence covers, not when the walkthrough was last touched — a
   // rename hours later must not stretch the recorded window.
@@ -600,7 +638,7 @@ export function buildReport(
     out.push('')
   }
   out.push(...interruptedLines(takes))
-  out.push(...transcriptCaveat(takes, opts))
+  out.push(...transcriptCaveat(takes, opts, labelSpeakers))
   out.push(...scopeLines(takes))
 
   const sheets = contactSheets(spans)
@@ -631,7 +669,8 @@ export function buildReport(
     traces,
     shown,
     chapterBreaks(lines),
-    sheets.length > 0
+    sheets.length > 0,
+    labelSpeakers
   ).sort((a, b) => a.pos - b.pos)
 
   for (const block of blocks) {
@@ -652,7 +691,10 @@ export function buildReport(
 
 export function buildTranscriptTxt(rec: RecordingMeta): string {
   if (!rec.transcript.length) return '(no narration)\n'
-  const lines = spokenWindows(rec).map((s) => `[${mmss(s.seg.t)}–${mmss(s.end)}] ${s.seg.text}`)
+  const label = speakerSet(rec.transcript).size >= 2
+  const lines = spokenWindows(rec).map(
+    (s) => `[${mmss(s.seg.t)}–${mmss(s.end)}] ${labeledText(s.seg, label)}`
+  )
   return `${lines.join('\n')}\n`
 }
 
@@ -701,6 +743,7 @@ export function buildRecordingJson(session: Session, recording: Recording, url?:
           aboutFromMs: s.from,
           aboutToMs: s.to,
           text: s.seg.text,
+          ...(s.seg.speaker === undefined ? {} : { speaker: s.seg.speaker }),
         })),
         events: rec.events.map((e) => ({
           level: e.level,

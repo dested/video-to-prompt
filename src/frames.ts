@@ -32,7 +32,7 @@ const FRAMES_PER_MIN = 40
 const MIN_FRAME_BUDGET = 150
 const MAX_FRAME_BUDGET = 600
 const MAX_FRAME_W = 1920
-const JPEG_QUALITY = 0.9
+const JPEG_QUALITY = 0.8 // 0.9 until 2026-08-25 — mirrors handback (frames dominate upload size)
 /**
  * Past half an hour even a one-second step is thousands of decodes. Cap the
  * candidate count and let the step stretch past the floor — the budget below
