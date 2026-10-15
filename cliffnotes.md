@@ -13,8 +13,8 @@ changed outlined, a timed transcript (via a pluggable speech engine), and a
 is meant to become Handback's only pipeline (see Status).
 
 Public repo **github.com/dested/video-to-prompt**; npm name **`@dested/video-to-prompt`**
-(1.1.3 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
-git tag (`github:dested/video-to-prompt#v1.1.3`): each `vX.Y.Z` tag is a release-only commit off
+(1.1.4 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
+git tag (`github:dested/video-to-prompt#v1.1.4`): each `vX.Y.Z` tag is a release-only commit off
 main with `dist/` force-added, because bun won't run `prepare` for git deps.
 
 ## Quick Reference
@@ -130,7 +130,8 @@ frames and encodes only keepers.
 - **Done (2026-10-15)**: v2 committed (`1a1930c`), tag `v1.0.0`; 1.1.0 adds the recording.json
   reader and host hooks for Handback's server-side brief; 1.1.1–1.1.2 fixes found on real walkthroughs
   and by the brief eval (line → frame pointer, change-note wording); 1.1.3 adds `keyframes: false`
-  and a transcriber-reported engine label for Handback's web capture.
+  and a transcriber-reported engine label for Handback's web capture; 1.1.4 stops promising change
+  outlines on frames a live recorder kept (no `sampling`).
 - **In progress**: the Handback migration (MCP brief, web capture, extension), per
   `W:\code\handback\plans\2026-10-15-video-to-prompt-v2-and-brief.md`.
 - **Waiting on Sal**: `npm login` + publish; bx (`narration: 'log'`, drop `wording.ts`) and

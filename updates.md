@@ -1,5 +1,12 @@
 # Updates
 
+## 2026-10-15 — 1.1.4: live-recorded frames promise no outlines
+
+Found migrating Handback's /record: its 64×64 live rule writes format 2 takes with no change boxes.
+Box promises (report, MANIFEST, "most of the screen changed") now need `sampling`, which only the
+extractor sets. Test fails on the old rule.
+Touched: src/report.ts, src/types.ts, test/unit/report.test.ts, package.json
+
 ## 2026-10-15 — 1.1.3: keyframes off, transcriber names its engine
 
 For Handback's web-capture migration: `keyframes: false` ships words only (no frames row in

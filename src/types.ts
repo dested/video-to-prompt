@@ -137,7 +137,12 @@ export interface RecordingMeta {
   transcriber?: TranscriberId
   /** Format 2: the transcriber's own description of itself, printed where the report says who wrote the words. */
   transcriberLabel?: string
-  /** Format 2: how frames were sampled — which engine, and how far apart candidates were. */
+  /**
+   * Format 2: how frames were sampled — which engine, and how far apart
+   * candidates were. Set only when this library's extractor chose the frames,
+   * so it is also the mark that they carry change boxes and the format 2
+   * `dist`. A live recorder's frames have neither and leave it unset.
+   */
   sampling?: { engine: string; stepMs: number }
   /** A cleanup pass rewrote the wording. Timings are the transcriber's either way. */
   polished?: boolean

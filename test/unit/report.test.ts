@@ -299,6 +299,24 @@ describe('reading recording.json back', () => {
     expect(buildReport(session, [take()])).toContain('magenta')
   })
 
+  test("a live recorder's frames promise no outlines, here or after the trip", () => {
+    // A live recorder keeps frames as it goes, by its own rule: no sampling, no change boxes.
+    const live = take({
+      sampling: undefined,
+      frames: frames.map(({ change: _change, held: _held, transient: _t, ...f }) => f),
+    })
+    for (const rec of [live, read(fileOf(live))]) {
+      const report = buildReport(session, [rec])
+      const manifest = buildManifestTxt(session, [rec])
+      expect(report).not.toContain('most of the screen changed')
+      expect(report).not.toContain('magenta')
+      expect(report).not.toContain('change boxes')
+      expect(manifest).not.toContain('magenta')
+      expect(manifest).not.toContain('change boxes')
+    }
+    expect(buildManifestTxt(session, [take()])).toContain('magenta')
+  })
+
   test("the extension's shape: webspeech, folder-prefixed files, m:ss-only events", () => {
     const value: unknown = JSON.parse(`{
       "session": { "name": "Old one", "slug": "2026-07-29-1412-old", "createdAt": "2026-07-29T14:12:00.000Z", "origin": "https://app.example" },

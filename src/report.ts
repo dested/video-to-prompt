@@ -385,8 +385,9 @@ function seconds(ms: number): string {
 
 /** One phrase for what this frame is: why it exists, what changed and where, whether it lasted. */
 /** Format 2 writes a change box whenever part of the screen changed; format 1 never wrote one. */
+/** Frames this library's extractor chose: change boxes on the sheets, format 2 `dist`. Format 1 and live recorders' frames have neither. */
 function hasChangeBoxes(meta: RecordingMeta): boolean {
-  return meta.format !== FORMAT_1
+  return meta.format !== FORMAT_1 && meta.sampling !== undefined
 }
 
 function describe(shot: Shot): string {
@@ -1001,8 +1002,8 @@ export function buildReport(
   }
 
   const sheets = contactSheets(spans)
-  // Format 1 sheets were drawn without outlines; never promise one on them.
-  const boxed = takes.every((r) => hasChangeBoxes(r.meta))
+  // Format 1 and live-recorded sheets were drawn without outlines; never promise one on them.
+  const boxed = takes.every((r) => !r.meta.frames.length || hasChangeBoxes(r.meta))
   if (sheets.length) {
     out.push(
       boxed
@@ -1200,7 +1201,7 @@ export function buildManifestTxt(
     if (sheets) {
       rows.push([
         `${dir}/grids/`,
-        `${sheets} contact sheet(s), ${GRID_PER_SHEET} frames each, in order, changes outlined in magenta`,
+        `${sheets} contact sheet(s), ${GRID_PER_SHEET} frames each, in order${hasChangeBoxes(rec) ? ', changes outlined in magenta' : ''}`,
       ])
     }
     rows.push([
@@ -1211,7 +1212,7 @@ export function buildManifestTxt(
     ])
     rows.push([
       `${dir}/recording.json`,
-      `frame times, change boxes, ${opts.words.line} windows, ${rec.events.length} error(s)${rec.eventScope ? ` from ${rec.eventScope}` : ''}${rec.droppedEvents ? ` (${rec.droppedEvents} dropped from other tabs)` : ''}`,
+      `frame times, ${hasChangeBoxes(rec) ? 'change boxes, ' : ''}${opts.words.line} windows, ${rec.events.length} error(s)${rec.eventScope ? ` from ${rec.eventScope}` : ''}${rec.droppedEvents ? ` (${rec.droppedEvents} dropped from other tabs)` : ''}`,
     ])
     rows.push([opts.videoPath(part.index, rec.videoFile), 'raw video (for humans)'])
   }

@@ -155,5 +155,8 @@ spread; clamp line ends; honest wording ("listed", not "inlined"); a narration-s
   human handback, and a transcriber that returns `{ segments, label }` so the report names the
   engine that answered (production can only say "Deepgram nova-3 or Whisper" today). The Coterie
   sample folder is already gone.
+- 1.1.4: frames from a live recorder (Handback /record, the extension) carry no change boxes and
+  no `sampling`; the report and MANIFEST stopped promising outlines for them. Handback's web
+  capture (phone, upload, /record) now runs on the library (local, not yet pushed).
 - Remaining before this plan is done: npm publish, Handback web + extension migration (H1–H2),
   bx and coterie switch-over.
