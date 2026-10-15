@@ -50,6 +50,13 @@ function tileLabel(frame: RecordingFrame, axisStart: number): string {
   return `${pad2(frame.index)} · ${mmss(axisStart + frame.t)}${held}`
 }
 
+/**
+ * What a transcriber hands back: the lines, or the lines plus the engine that
+ * actually wrote them, for a transcriber that routes between several (a hosted
+ * endpoint that prefers one provider and falls back to another).
+ */
+export type Heard = TranscriptSegment[] | { segments: TranscriptSegment[]; label?: string }
+
 /** Speech-to-text over the decoded narration. Return null to ship without words — never throw for "no transcript". */
 export type TranscribeFn = (
   audio: Float32Array,
@@ -60,12 +67,12 @@ export type TranscribeFn = (
     onProgress: (fraction: number) => void
     signal?: AbortSignal
   }
-) => Promise<TranscriptSegment[] | null>
+) => Promise<Heard | null>
 
 export interface Transcriber {
   /** Short stable id, stored in recording.json ('whisper', 'groq', anything). */
   id: TranscriberId
-  /** How the report names it where it says who wrote the words (e.g. "Whisper large-v3-turbo, hosted"). Default: the id. */
+  /** How the report names it where it says who wrote the words (e.g. "Whisper large-v3-turbo, hosted"). Default: the id. A label `run` returns wins. */
   label?: string
   run: TranscribeFn
 }
@@ -97,6 +104,12 @@ export interface DistillOptions {
   frameEngine?: FrameEngine | 'auto'
   /** Put each take's own video in the file set. Default true. */
   includeVideo?: boolean
+  /**
+   * Pull keyframes and draw contact sheets. Default true. False when the video
+   * itself is the deliverable and stills would only be storage: the takes
+   * carry no frames and the stage never reports progress.
+   */
+  keyframes?: boolean
 }
 
 export interface DistillOutput {
@@ -183,6 +196,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     // hundred JPEG blobs are a comparable pile. Overlapping the two is what kills
     // the tab, so the spike is taken and released before a single frame exists.
     let transcript: TranscriptSegment[] = []
+    let heardLabel: string | undefined
     if (opts.transcriber) {
       report('audio', i, -1, label)
       let audio = await decodeMono(file, { signal: opts.signal })
@@ -197,7 +211,8 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         audio = null
         if (heard) {
           transcribed = true
-          transcript = heard
+          transcript = Array.isArray(heard) ? heard : heard.segments
+          if (!Array.isArray(heard)) heardLabel = heard.label
         }
       }
     }
@@ -232,7 +247,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     try {
       let frames: RecordingFrame[] = []
       let frameBlobs = new Map<number, Blob>()
-      if (probe.hasVideo) {
+      if (probe.hasVideo && (opts.keyframes ?? true)) {
         const total = mmss(probe.durationMs)
         report('frames', i, 0, `0:00 of ${total}`)
         const extracted = await extractFrames(file, probe.durationMs, {
@@ -304,8 +319,8 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         frames: kept,
         transcript,
         ...(transcript.length && opts.transcriber ? { transcriber: opts.transcriber.id } : {}),
-        ...(transcript.length && opts.transcriber?.label
-          ? { transcriberLabel: opts.transcriber.label }
+        ...(transcript.length && (heardLabel ?? opts.transcriber?.label)
+          ? { transcriberLabel: heardLabel ?? opts.transcriber?.label }
           : {}),
         ...(takePolished ? { polished: true } : {}),
         events: [],

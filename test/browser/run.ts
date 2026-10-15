@@ -5,6 +5,7 @@
  *       [--ref <git-ref>]          run an older checkout's src/ instead of this one
  *       [--transcript <json>]      scripted narration: [[{t,d,text},…] per clip]
  *       [--title <text>] [--extra <json>]
+ *       [--heard-label <text>]     the stand-in transcriber names its engine ({ segments, label })
  *
  * The library is browser-only, so this is how it is exercised end to end: the
  * runner bundles a harness for the chosen source tree, serves it with the clips,
@@ -33,6 +34,7 @@ export interface RunOptions {
   ref?: string
   transcripts?: RunRequest['transcripts']
   transcriberId?: string
+  heardLabel?: string
   title?: string
   extra?: Record<string, unknown>
   report?: Record<string, unknown>
@@ -130,6 +132,7 @@ export async function runDistill(opts: RunOptions): Promise<RunResult> {
       outPrefix: 'run',
       transcripts: opts.transcripts,
       transcriberId: opts.transcriberId,
+      heardLabel: opts.heardLabel,
       report: opts.report,
       extra: opts.extra,
     }
@@ -150,7 +153,7 @@ function arg(name: string): string | undefined {
 }
 
 if (import.meta.main) {
-  const flags = new Set(['--out', '--ref', '--transcript', '--title', '--extra'])
+  const flags = new Set(['--out', '--ref', '--transcript', '--title', '--extra', '--heard-label'])
   const clips = process.argv
     .slice(2)
     .filter((a, i, all) => !a.startsWith('--') && !flags.has(all[i - 1] ?? ''))
@@ -168,6 +171,7 @@ if (import.meta.main) {
     out,
     ref: arg('--ref'),
     title: arg('--title'),
+    heardLabel: arg('--heard-label'),
     transcripts: transcriptPath ? JSON.parse(await readFile(transcriptPath, 'utf8')) : undefined,
     extra: extra ? JSON.parse(extra) : undefined,
   })

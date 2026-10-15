@@ -26,7 +26,9 @@ export interface HarnessLib {
       title: string
       transcriber?: {
         id: string
-        run: (audio: Float32Array) => Promise<HarnessSegment[] | null>
+        run: (
+          audio: Float32Array
+        ) => Promise<HarnessSegment[] | { segments: HarnessSegment[]; label?: string } | null>
       }
       report?: Record<string, unknown>
       onProgress?: (p: { stage: string; pct: number; detail?: string }) => void
@@ -42,6 +44,8 @@ export interface RunRequest {
   /** Scripted narration per clip, returned by a stand-in transcriber (ms from clip start). */
   transcripts?: HarnessSegment[][]
   transcriberId?: string
+  /** The stand-in transcriber answers `{ segments, label }`, naming the engine as a router would (v2 1.1.3+). */
+  heardLabel?: string
   report?: Record<string, unknown>
   /** Extra options merged into the distill call (v2-only knobs). */
   extra?: Record<string, unknown>
@@ -90,7 +94,8 @@ export function install(lib: HarnessLib): void {
             label: req.transcriberId ? undefined : 'a script (the fixture narration)',
             run: async () => {
               const clip = order[calls++]
-              return clip ? (byName.get(clip.name) ?? null) : null
+              const segments = clip ? (byName.get(clip.name) ?? null) : null
+              return segments && req.heardLabel ? { segments, label: req.heardLabel } : segments
             },
           }
         : undefined

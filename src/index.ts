@@ -13,6 +13,7 @@ export {
   distill,
   type DistillOptions,
   type DistillOutput,
+  type Heard,
   type Polisher,
   type TranscribeFn,
   type Transcriber,

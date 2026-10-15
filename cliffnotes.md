@@ -13,8 +13,8 @@ changed outlined, a timed transcript (via a pluggable speech engine), and a
 is meant to become Handback's only pipeline (see Status).
 
 Public repo **github.com/dested/video-to-prompt**; npm name **`@dested/video-to-prompt`**
-(1.1.2 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
-git tag (`github:dested/video-to-prompt#v1.1.2`): each `vX.Y.Z` tag is a release-only commit off
+(1.1.3 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
+git tag (`github:dested/video-to-prompt#v1.1.3`): each `vX.Y.Z` tag is a release-only commit off
 main with `dist/` force-added, because bun won't run `prepare` for git deps.
 
 ## Quick Reference
@@ -43,7 +43,8 @@ typescript, @types/bun, playwright-core (eval harness), prettier, rimraf.
 src/
   index.ts       Public surface, the only file consumers import from
   distill.ts     THE orchestrator: clips in → file set out; Transcriber (id + label)/Polisher plug
-                 points; options sheetWidth, frameEngine, includeVideo
+                 points (a transcriber may return { segments, label }); options sheetWidth,
+                 frameEngine, includeVideo, keyframes
   types.ts       FORMAT = 'video-to-prompt/2' + the recording shapes (Recording, RecordingMeta,
                  RecordingFrame with change/held/transient, FrameBox, TranscriptSegment, Session…)
   probe.ts       Container-first probe via mediabunny (duration, size, poster via WebCodecs);
@@ -128,7 +129,8 @@ frames and encodes only keepers.
   Review page: https://claude.ai/artifact/NbTveyzKvZNgdSqka4Z1nG
 - **Done (2026-10-15)**: v2 committed (`1a1930c`), tag `v1.0.0`; 1.1.0 adds the recording.json
   reader and host hooks for Handback's server-side brief; 1.1.1–1.1.2 fixes found on real walkthroughs
-  and by the brief eval (line → frame pointer, change-note wording).
+  and by the brief eval (line → frame pointer, change-note wording); 1.1.3 adds `keyframes: false`
+  and a transcriber-reported engine label for Handback's web capture.
 - **In progress**: the Handback migration (MCP brief, web capture, extension), per
   `W:\code\handback\plans\2026-10-15-video-to-prompt-v2-and-brief.md`.
 - **Waiting on Sal**: `npm login` + publish; bx (`narration: 'log'`, drop `wording.ts`) and

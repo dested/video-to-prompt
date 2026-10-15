@@ -55,6 +55,8 @@ const whisperViaMyServer: Transcriber = {
     const res = await fetch('/api/transcribe', { method: 'POST', body: encodeWav(audio), signal })
     if (!res.ok) return null // null = ship without words, never fail the run
     return await res.json() // [{ t: msFromStart, d?: spokenMs, text, speaker? }, …]
+    // A server that picks between engines can say which one answered:
+    // return { segments, label: 'Deepgram nova-3' } (a returned label beats `label` above)
   },
 }
 
@@ -78,6 +80,7 @@ const result = await distill(clips, {
 | `frameEngine`                                              | `'auto'`   | `'webcodecs'` or `'seek'` to force one. `auto` uses WebCodecs wherever the browser can decode the file                                          |
 | `sheetWidth`                                               | `2000`     | Contact sheet width. 2000 px is Claude Code's display limit; pass 2576 for a model fed through the API                                          |
 | `includeVideo`                                             | `true`     | Put each take's video in the file set. Off when the host stores the video itself                                                                |
+| `keyframes`                                                | `true`     | `false` skips frames and sheets: the video is the deliverable and only the words are distilled (a person talking to camera)                     |
 | `report.narration`                                         | `'speech'` | `'log'` when the lines are a tool's own action log (exact, not transcribed); every word the report uses for them changes                        |
 | `report.narrationBy` / `report.intro` / `report.videoPath` |            | Who wrote the log, the opening sentence, and where a take's video lives when it isn't `rec-NN/<file>`                                           |
 | `report.cuts`                                              |            | Stretches removed after recording (`{ fromMs, toMs, reason? }` on the walkthrough's clock). Left out of the report and marked ✂ in the timeline |

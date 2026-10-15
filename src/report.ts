@@ -1190,10 +1190,13 @@ export function buildManifestTxt(
       `${dir}/`,
       `part ${part.index} — ${Math.round(rec.durationMs / 1000)}s, ${rec.transcript.length} ${opts.words.line}(s)${part.interrupted ? ' (interrupted — tail may be missing)' : ''}`,
     ])
-    rows.push([
-      `${dir}/frames/`,
-      `${rec.frames.length} keyframes, NN-mmss.jpg (the mmss is time inside this part's own ${rec.videoFile}, not a position in report.md's timeline) — ${samplingNote(rec)}`,
-    ])
+    // No keyframes (audio only, or `keyframes: false`) means no folder: don't send a reader to it.
+    if (rec.frames.length) {
+      rows.push([
+        `${dir}/frames/`,
+        `${rec.frames.length} keyframes, NN-mmss.jpg (the mmss is time inside this part's own ${rec.videoFile}, not a position in report.md's timeline) — ${samplingNote(rec)}`,
+      ])
+    }
     if (sheets) {
       rows.push([
         `${dir}/grids/`,

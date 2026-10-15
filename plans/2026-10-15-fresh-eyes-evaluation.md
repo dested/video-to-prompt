@@ -150,6 +150,10 @@ spread; clamp line ends; honest wording ("listed", not "inlined"); a narration-s
   signature cell by 4 levels, under codec noise, so it never registers or gets a box. The
   narration rule still keeps a frame of it. A finer second signature for change boxes only would
   catch it, but a digit and the mouse pointer are the same size; that needs its own eval.
-- Remaining before this plan is done: commit, npm publish, Handback web + extension migration and
-  MCP brief (H1–H3), bx and coterie switch-over, then delete
-  `W:\junk\video-to-prompt\sample-7fa3\` (Coterie PII).
+- Handback MCP brief (H3) shipped on library 1.1.2 (handback bd6960b, deployed and checked on a
+  real walkthrough). 1.1.3 adds what the web-capture migration needs: `keyframes: false` for a
+  human handback, and a transcriber that returns `{ segments, label }` so the report names the
+  engine that answered (production can only say "Deepgram nova-3 or Whisper" today). The Coterie
+  sample folder is already gone.
+- Remaining before this plan is done: npm publish, Handback web + extension migration (H1–H2),
+  bx and coterie switch-over.
