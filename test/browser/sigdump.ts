@@ -68,11 +68,22 @@ window.dump = async ({ url, name, type, stepMs, durationMs, engine, sigCols }) =
 }
 `
 
-export async function sigDump(clip: string, out: string, stepMs: number, engine: string, durationMs: number, sigCols = 0): Promise<SigDump> {
+export async function sigDump(
+  clip: string,
+  out: string,
+  stepMs: number,
+  engine: string,
+  durationMs: number,
+  sigCols = 0
+): Promise<SigDump> {
   const outDir = join(repo, 'test/browser/.out/sigdump')
   await mkdir(outDir, { recursive: true })
   await writeFile(join(outDir, 'entry.ts'), PAGE_ENTRY)
-  const built = await Bun.build({ entrypoints: [join(outDir, 'entry.ts')], outdir: outDir, target: 'browser' })
+  const built = await Bun.build({
+    entrypoints: [join(outDir, 'entry.ts')],
+    outdir: outDir,
+    target: 'browser',
+  })
   if (!built.success) throw new Error(built.logs.map(String).join('\n'))
   let sig: Uint8Array | null = null
   const server = Bun.serve({
@@ -80,11 +91,17 @@ export async function sigDump(clip: string, out: string, stepMs: number, engine:
     async fetch(req) {
       const url = new URL(req.url)
       if (url.pathname === '/') {
-        return new Response('<!doctype html><body><script type="module" src="/entry.js"></script></body>', {
-          headers: { 'content-type': 'text/html' },
-        })
+        return new Response(
+          '<!doctype html><body><script type="module" src="/entry.js"></script></body>',
+          {
+            headers: { 'content-type': 'text/html' },
+          }
+        )
       }
-      if (url.pathname === '/entry.js') return new Response(Bun.file(join(outDir, 'entry.js')), { headers: { 'content-type': 'text/javascript' } })
+      if (url.pathname === '/entry.js')
+        return new Response(Bun.file(join(outDir, 'entry.js')), {
+          headers: { 'content-type': 'text/javascript' },
+        })
       if (url.pathname === '/clip') return new Response(Bun.file(clip))
       if (url.pathname === '/sig' && req.method === 'PUT') {
         sig = new Uint8Array(await req.arrayBuffer())
@@ -101,7 +118,12 @@ export async function sigDump(clip: string, out: string, stepMs: number, engine:
     await page.waitForFunction(() => 'dump' in window)
     const type = clip.endsWith('.mp4') ? 'video/mp4' : 'video/webm'
     const res = await page.evaluate(
-      (a) => (window as unknown as { dump(x: typeof a): Promise<Omit<SigDump, 'clip' | 'stepMs' | 'durationMs'>> }).dump(a),
+      (a) =>
+        (
+          window as unknown as {
+            dump(x: typeof a): Promise<Omit<SigDump, 'clip' | 'stepMs' | 'durationMs'>>
+          }
+        ).dump(a),
       { url: '/clip', name: basename(clip), type, stepMs, durationMs, engine, sigCols }
     )
     if (!sig) throw new Error('no signature upload')
@@ -134,9 +156,18 @@ if (import.meta.main) {
   const out = flag('--out')
   const duration = Number(flag('--duration'))
   if (!clip || !out || !duration) {
-    console.error('usage: bun test/browser/sigdump.ts <clip> --out <file.sig> --duration <ms> [--step 250] [--engine auto]')
+    console.error(
+      'usage: bun test/browser/sigdump.ts <clip> --out <file.sig> --duration <ms> [--step 250] [--engine auto]'
+    )
     process.exit(1)
   }
-  const d = await sigDump(resolve(clip), out, Number(flag('--step') ?? 250), flag('--engine') ?? 'auto', duration, Number(flag('--cols') ?? 0))
+  const d = await sigDump(
+    resolve(clip),
+    out,
+    Number(flag('--step') ?? 250),
+    flag('--engine') ?? 'auto',
+    duration,
+    Number(flag('--cols') ?? 0)
+  )
   console.log(`${d.times.length} frames ${d.cols}×${d.rows} via ${d.engine} in ${d.ms} ms`)
 }

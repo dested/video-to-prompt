@@ -2,7 +2,13 @@ import { throwIfAborted } from './cancel.js'
 import { openFrameSource, type FrameEngine, type SourceFrame } from './decode.js'
 import { mmssFile, pad2 } from './format.js'
 import { toJpeg } from './media.js'
-import { Selector, type NarrationWindow, type Pick, type SelectAction, type Slot } from './select.js'
+import {
+  Selector,
+  type NarrationWindow,
+  type Pick,
+  type SelectAction,
+  type Slot,
+} from './select.js'
 import { SIG_COLS, sigRows, signatureFromRgba, type Signature } from './signature.js'
 import type { RecordingFrame } from './types.js'
 
@@ -59,7 +65,10 @@ export interface ExtractedFrames {
   stepMs: number
 }
 
-export function candidateTimes(durationMs: number, engine: FrameEngine): { times: number[]; stepMs: number } {
+export function candidateTimes(
+  durationMs: number,
+  engine: FrameEngine
+): { times: number[]; stepMs: number } {
   const stepMs = Math.max(STEP_MS[engine], Math.ceil(durationMs / MAX_CANDIDATES[engine]))
   const times: number[] = []
   for (let t = 0; t < durationMs; t += stepMs) times.push(t)
@@ -79,7 +88,11 @@ export async function extractFrames(
   const source = await openFrameSource(file, { engine: opts.engine, signal: opts.signal })
   const engine = source.engine
   const { times, stepMs } = candidateTimes(durationMs, engine)
-  const selector = new Selector({ durationMs, budget: frameBudget(durationMs), narration: opts.narration })
+  const selector = new Selector({
+    durationMs,
+    budget: frameBudget(durationMs),
+    narration: opts.narration,
+  })
 
   const sigCtx = canvas2d(SIG_COLS, 1, true)
   const slots: Record<Slot, CanvasRenderingContext2D> = {

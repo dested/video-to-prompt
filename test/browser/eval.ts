@@ -49,7 +49,12 @@ export function score(truth: Truth, frames: FrameRow[]): Omit<Score, 'label' | '
       (t) => t >= n.at && t < n.until && !truth.events.some((e) => t >= e.at && t < e.until)
     ).length,
   }))
-  return { frames: ts.length, caught: events.filter((e) => e.hit && !e.optional).length, events, noise }
+  return {
+    frames: ts.length,
+    caught: events.filter((e) => e.hit && !e.optional).length,
+    events,
+    noise,
+  }
 }
 
 function arg(name: string): string[] {
@@ -87,7 +92,12 @@ if (import.meta.main) {
           title: 'Ledgerly invoices: total wrong, payment failed',
         })
         const rec = JSON.parse(await readFile(join(out, 'rec-01/recording.json'), 'utf8'))
-        scores.push({ label: config.label, clip, ms: result.ms, ...score(truth, rec.recording.frames) })
+        scores.push({
+          label: config.label,
+          clip,
+          ms: result.ms,
+          ...score(truth, rec.recording.frames),
+        })
       }
     }
   } finally {
@@ -100,7 +110,9 @@ if (import.meta.main) {
       `\n${s.label} · ${s.clip}: ${s.caught}/${s.events.filter((e) => !e.optional).length} states · ${s.frames} frames · ${(s.ms / 1000).toFixed(1)}s · noise: ${noise}`
     )
     for (const e of s.events) {
-      console.log(`  ${e.hit ? '✓' : e.optional ? '·' : '✗'} ${e.name}${e.latencyMs === null ? '' : ` (+${e.latencyMs}ms)`}`)
+      console.log(
+        `  ${e.hit ? '✓' : e.optional ? '·' : '✗'} ${e.name}${e.latencyMs === null ? '' : ` (+${e.latencyMs}ms)`}`
+      )
     }
   }
 }

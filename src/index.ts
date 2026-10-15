@@ -68,12 +68,16 @@ export {
   buildRecordingJson,
   buildReport,
   buildTranscriptTxt,
+  evidenceAt,
   rankFrames,
   sheetFile,
   whereOnScreen,
+  type Evidence,
   type RankedFrame,
+  type ReportCut,
   type ReportOptions,
 } from './report.js'
+export { readRecordingJson, type ReadTake } from './read.js'
 export { framePos, linePos, partSpans, totalMs, type PartSpan } from './timeline.js'
 export { dateTime, hhmm, mmss, mmssFile, pad2, recDirName } from './format.js'
 export { slugify } from './slug.js'

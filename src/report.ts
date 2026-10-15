@@ -10,7 +10,7 @@ import type {
   Session,
   TranscriptSegment,
 } from './types.js'
-import { FORMAT, GRID_PER_SHEET } from './types.js'
+import { FORMAT, FORMAT_1, GRID_PER_SHEET } from './types.js'
 
 /**
  * The walkthrough's prose, its per-take JSON and its listing. Written for a
@@ -52,6 +52,26 @@ export interface ReportOptions {
   intro?: string
   /** Where a take's video lives, when it isn't `rec-NN/<videoFile>`. */
   videoPath?: (part: number, videoFile: string) => string
+  /**
+   * Stretches the host removed after recording (a reviewer's cut). Frames,
+   * lines and errors inside them are left out, and the timeline marks each gap.
+   * The video and the contact sheets can't be redrawn, so they still show it.
+   */
+  cuts?: ReportCut[]
+  /**
+   * One-sentence captions of frames, by walkthrough-relative path, written by a
+   * model that looked at them. Printed beside the frame as `shows:`, labelled as
+   * a model's reading.
+   */
+  captions?: Record<string, string>
+}
+
+/** A stretch of the walkthrough's axis, in ms from its start, that no longer counts. */
+export interface ReportCut {
+  fromMs: number
+  toMs: number
+  /** Why, in a few words ("false start"). Printed in the timeline. */
+  reason?: string
 }
 
 interface Wording {
@@ -77,6 +97,8 @@ interface ResolvedOptions {
   polishedBy: string
   videoPath: (part: number, videoFile: string) => string
   words: Wording
+  cuts: ReportCut[]
+  captions: Record<string, string>
 }
 
 function resolve(opts: ReportOptions): ResolvedOptions {
@@ -101,7 +123,9 @@ function resolve(opts: ReportOptions): ResolvedOptions {
           intro:
             opts.intro ??
             'A person recorded this while using the app, talking through what they saw: a bug, review notes, or a change they want.',
-          silent: opts.intro ?? 'A person recorded this while using the app: a bug, review notes, or a change they want.',
+          silent:
+            opts.intro ??
+            'A person recorded this while using the app: a bug, review notes, or a change they want.',
           trust: speechTrust,
           stamp: 'where the speaker started',
           window: 'the second time is where they stopped',
@@ -114,6 +138,8 @@ function resolve(opts: ReportOptions): ResolvedOptions {
     polishedBy: opts.polishedBy ?? 'an LLM',
     videoPath: opts.videoPath ?? ((part, file) => `${recDirName(part)}/${file}`),
     words,
+    cuts: (opts.cuts ?? []).filter((c) => c.toMs > c.fromMs),
+    captions: opts.captions ?? {},
   }
 }
 
@@ -228,7 +254,15 @@ function axisLines(recordings: Recording[], spans: PartSpan[]): Line[] {
         from = Math.max(from, span.start)
         to = Math.min(to, span.end)
       }
-      out.push({ rec, seg, pos, end: Math.max(pos, end), from, to, concern: CONCERN.test(seg.text) })
+      out.push({
+        rec,
+        seg,
+        pos,
+        end: Math.max(pos, end),
+        from,
+        to,
+        concern: CONCERN.test(seg.text),
+      })
     }
   }
   return out.sort((a, b) => a.pos - b.pos)
@@ -269,6 +303,28 @@ function axisEvents(recordings: Recording[], spans: PartSpan[]): Trace[] {
     }
   }
   return out.sort((a, b) => a.pos - b.pos)
+}
+
+/** Everything the report places, on one axis, with the removed stretches already left out. */
+interface Axis {
+  spans: PartSpan[]
+  takes: Recording[]
+  shots: Shot[]
+  lines: Line[]
+  traces: Trace[]
+}
+
+function axis(recordings: Recording[], cuts: ReportCut[]): Axis {
+  const spans = partSpans(recordings)
+  const takes = spans.map((s) => s.rec)
+  const kept = (pos: number) => !cuts.some((c) => pos >= c.fromMs && pos < c.toMs)
+  return {
+    spans,
+    takes,
+    shots: axisShots(takes, spans).filter((s) => kept(s.pos)),
+    lines: axisLines(takes, spans).filter((l) => kept(l.pos)),
+    traces: axisEvents(takes, spans).filter((t) => kept(t.pos)),
+  }
 }
 
 /** frame index → the contact sheet it appears on. Batching must match `makeGrids`. */
@@ -319,6 +375,11 @@ function seconds(ms: number): string {
 }
 
 /** One phrase for what this frame is: why it exists, what changed and where, whether it lasted. */
+/** Format 2 writes a change box whenever part of the screen changed; format 1 never wrote one. */
+function hasChangeBoxes(meta: RecordingMeta): boolean {
+  return meta.format !== FORMAT_1
+}
+
 function describe(shot: Shot): string {
   const f = shot.frame
   const parts: string[] = []
@@ -330,7 +391,8 @@ function describe(shot: Shot): string {
   else if (f.reason === 'beat') parts.push('periodic frame, slow drift')
   else if (f.reason === 'click') parts.push('click')
   else if (f.reason === 'nav') parts.push('navigation')
-  else if (f.dist !== undefined && f.dist > 0) parts.push('most of the screen changed')
+  else if (f.dist !== undefined && f.dist > 0 && hasChangeBoxes(shot.rec.meta))
+    parts.push('most of the screen changed')
   else parts.push('changed')
   if (f.transient && f.held !== undefined) parts.push(`gone after ${seconds(f.held)}`)
   if (f.reason === 'end' || (shot.last && f.reason !== 'start')) parts.push('final state')
@@ -356,13 +418,7 @@ function intrinsic(shot: Shot, traces: Trace[]): number {
 
 /** The captured error closest to a frame, within ERROR_NEAR_MS of it. */
 function errorNear(shot: Shot, traces: Trace[]): Trace | undefined {
-  let best: Trace | undefined
-  for (const t of traces) {
-    if (t.ev.level !== 'error') continue
-    const gap = Math.abs(t.pos - shot.pos)
-    if (gap < ERROR_NEAR_MS && (!best || gap < Math.abs(best.pos - shot.pos))) best = t
-  }
-  return best
+  return nearestError(shot.pos, traces)
 }
 
 /** A frame's worth for the "start here" list: what it is, plus every line that points at it. */
@@ -384,7 +440,8 @@ function shotScore(shot: Shot, lines: Line[], traces: Trace[]): number {
  * happened). Frames from after it ended count only when there is nothing else.
  */
 function bestFor(line: Line, shots: Shot[], worth: Map<string, number>): Shot | undefined {
-  const sameTake = (s: Shot) => line.seg.tl !== undefined || s.frame.tl !== undefined || s.rec.id === line.rec.id
+  const sameTake = (s: Shot) =>
+    line.seg.tl !== undefined || s.frame.tl !== undefined || s.rec.id === line.rec.id
   const showing = onScreen(line.pos, shots.filter(sameTake))
   let best: Shot | undefined
   let bestScore = -Infinity
@@ -414,7 +471,8 @@ function onScreen(pos: number, shots: Shot[]): Shot | undefined {
   let found: Shot | undefined
   for (const shot of shots) {
     if (shot.pos > pos) break
-    const gone = shot.frame.transient && shot.frame.held !== undefined && shot.pos + shot.frame.held <= pos
+    const gone =
+      shot.frame.transient && shot.frame.held !== undefined && shot.pos + shot.frame.held <= pos
     if (!gone) found = shot
   }
   return found
@@ -441,12 +499,11 @@ export interface RankedFrame {
  * for longer walkthroughs. The report's "Start here" list; exported so a host
  * that hands an agent images directly (an MCP tool) sends the same ones.
  */
-export function rankFrames(recordings: Recording[]): RankedFrame[] {
-  const spans = partSpans(recordings)
-  const takes = spans.map((s) => s.rec)
-  const shots = axisShots(takes, spans)
-  const lines = axisLines(takes, spans)
-  const traces = axisEvents(takes, spans)
+export function rankFrames(
+  recordings: Recording[],
+  options: Pick<ReportOptions, 'cuts'> = {}
+): RankedFrame[] {
+  const { shots, lines, traces } = axis(recordings, options.cuts ?? [])
   return startHere(shots, lines, traces).map(({ shot, score, line }) => ({
     path: shot.path,
     pos: shot.pos,
@@ -463,6 +520,77 @@ function withError(trace: Trace | undefined): { error?: string } {
   return trace ? { error: trace.ev.message } : {}
 }
 
+/** What the recording holds at one moment: the line said there, the frame that shows it, an error beside it. */
+export interface Evidence {
+  line?: { text: string; pos: number; end: number; speaker?: number }
+  frame?: { path: string; pos: number; what: string }
+  error?: { message: string; pos: number }
+}
+
+/** How far a stamp may sit from the line it was copied off: stamps are whole seconds, rounded or floored. */
+const STAMP_SLACK_MS = 1000
+/** Past this, the nearest line is about something else. */
+const LINE_NEAR_MS = 5000
+
+/**
+ * The evidence for a moment on the walkthrough's axis, such as a point a
+ * summary pinned to "1:42": the spoken line there (or nearest), the frame that
+ * best shows that line, and a captured error within 3 s of the frame. With no
+ * line nearby, the frame on screen at that moment.
+ */
+export function evidenceAt(
+  recordings: Recording[],
+  posMs: number,
+  options: Pick<ReportOptions, 'cuts'> = {}
+): Evidence {
+  const { shots, lines, traces } = axis(recordings, options.cuts ?? [])
+  const worth = new Map(shots.map((s) => [s.key, intrinsic(s, traces)]))
+  const line = lineAt(lines, posMs)
+  const shot = line
+    ? bestFor(line, shots, worth)
+    : (onScreen(posMs, shots) ?? shots.find((s) => s.pos >= posMs && s.pos - posMs < ERROR_NEAR_MS))
+  const err = shot ? errorNear(shot, traces) : nearestError(posMs, traces)
+  return {
+    ...(line
+      ? {
+          line: {
+            text: line.seg.text,
+            pos: line.pos,
+            end: line.end,
+            ...(line.seg.speaker === undefined ? {} : { speaker: line.seg.speaker }),
+          },
+        }
+      : {}),
+    ...(shot ? { frame: { path: shot.path, pos: shot.pos, what: describe(shot) } } : {}),
+    ...(err ? { error: { message: err.ev.message, pos: err.pos } } : {}),
+  }
+}
+
+/** The line being said at `pos` (closest start wins), else the nearest one within LINE_NEAR_MS. */
+function lineAt(lines: Line[], pos: number): Line | undefined {
+  let inside: Line | undefined
+  let near: Line | undefined
+  for (const line of lines) {
+    const gap = Math.abs(line.pos - pos)
+    if (pos >= line.pos - STAMP_SLACK_MS && pos <= line.end + STAMP_SLACK_MS / 2) {
+      if (!inside || gap < Math.abs(inside.pos - pos)) inside = line
+    } else if (gap <= LINE_NEAR_MS && (!near || gap < Math.abs(near.pos - pos))) {
+      near = line
+    }
+  }
+  return inside ?? near
+}
+
+function nearestError(pos: number, traces: Trace[]): Trace | undefined {
+  let best: Trace | undefined
+  for (const t of traces) {
+    if (t.ev.level !== 'error') continue
+    const gap = Math.abs(t.pos - pos)
+    if (gap < ERROR_NEAR_MS && (!best || gap < Math.abs(best.pos - pos))) best = t
+  }
+  return best
+}
+
 /**
  * Which frames to open first. Every complaint gets its evidence before
  * anything else does: each line that sounds like one contributes the frame
@@ -477,7 +605,10 @@ function startHere(
   if (!shots.length) return []
   const scores = new Map(shots.map((s) => [s.key, shotScore(s, lines, traces)]))
   const worth = new Map(shots.map((s) => [s.key, intrinsic(s, traces)]))
-  const want = Math.min(shots.length, Math.max(START_MIN, Math.min(START_MAX, Math.ceil(shots.length / 3))))
+  const want = Math.min(
+    shots.length,
+    Math.max(START_MIN, Math.min(START_MAX, Math.ceil(shots.length / 3)))
+  )
   const picked = new Map<string, { shot: Shot; line?: Line }>()
   const add = (shot: Shot | undefined, line?: Line) => {
     if (!shot || picked.size >= want) return
@@ -497,8 +628,11 @@ function startHere(
     add(e.shot, e.line)
   }
   const final = shots[shots.length - 1]
-  if (final && final.frame.reason !== 'start') add(final, evidence.find((e) => e.shot === final)?.line)
-  for (const shot of [...shots].sort((a, b) => (scores.get(b.key) ?? 0) - (scores.get(a.key) ?? 0) || a.pos - b.pos)) {
+  if (final && final.frame.reason !== 'start')
+    add(final, evidence.find((e) => e.shot === final)?.line)
+  for (const shot of [...shots].sort(
+    (a, b) => (scores.get(b.key) ?? 0) - (scores.get(a.key) ?? 0) || a.pos - b.pos
+  )) {
     add(shot, evidence.find((e) => e.shot === shot)?.line)
   }
   return [...picked.values()]
@@ -538,7 +672,8 @@ function introParagraph(
     )
     const trust = opts.words.trust(takes, opts)
     if (trust) sentences.push(trust)
-    if (labelSpeakers) sentences.push('More than one voice was heard: S1 is the one who spoke most.')
+    if (labelSpeakers)
+      sentences.push('More than one voice was heard: S1 is the one who spoke most.')
   } else if (takes.length) {
     sentences.push(`No ${opts.words.lines} came with it; the frames are all there is.`)
   }
@@ -548,13 +683,23 @@ function introParagraph(
   return [sentences.join(' '), '']
 }
 
-function orientation(takes: Recording[], opts: ResolvedOptions): string[] {
+function orientation(takes: Recording[], shots: Shot[], opts: ResolvedOptions): string[] {
   const out = [
     `Every path is relative to this walkthrough's files (${opts.pathsHint}). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.`,
   ]
   if (takes.some((r) => r.meta.frames.some((f) => f.pointer?.nx !== undefined))) {
     out.push(
       'An accent crosshair drawn on a frame is the mouse pointer, and `pointer` under a frame names what it was over.'
+    )
+  }
+  if (opts.cuts.length) {
+    out.push(
+      'Stretches marked ✂ were removed after recording: nothing inside them counts, even where the video or a contact sheet still shows it.'
+    )
+  }
+  if (shots.some((s) => opts.captions[s.path])) {
+    out.push(
+      "`shows:` is a model's one-line reading of a frame; check it against the image before relying on it."
     )
   }
   return [out.join(' '), '']
@@ -574,7 +719,10 @@ function scopeLines(recordings: Recording[]): string[] {
   if (!scopes.length || (!events && !dropped)) return []
   const from = [...new Set(scopes)].map((s) => `\`${s}\``).join(', ')
   const lost = dropped ? ` ${dropped} event(s) from other tabs were dropped.` : ''
-  return [`Console and network lines come only from ${from}, the tab in front while recording.${lost}`, '']
+  return [
+    `Console and network lines come only from ${from}, the tab in front while recording.${lost}`,
+    '',
+  ]
 }
 
 /** A recording reassembled from chunks — say so, never imply it is whole. */
@@ -588,7 +736,9 @@ function interruptedLines(recordings: Recording[]): string[] {
 }
 
 /** Every take's sheets in axis order. Batching must match `makeGrids`: meta order, nine at a time. */
-function contactSheets(spans: PartSpan[]): { file: string; from: number; to: number; frames: string }[] {
+function contactSheets(
+  spans: PartSpan[]
+): { file: string; from: number; to: number; frames: string }[] {
   const out: { file: string; from: number; to: number; frames: string }[] = []
   for (const span of spans) {
     const prefix = `${recDirName(span.rec.index)}/`
@@ -604,7 +754,10 @@ function contactSheets(spans: PartSpan[]): { file: string; from: number; to: num
         file: sheetFile(n, prefix),
         from: Math.min(...at),
         to: Math.max(...at),
-        frames: firstIdx === lastIdx ? `${take}frame ${firstIdx}` : `${take}frames ${firstIdx}–${lastIdx}`,
+        frames:
+          firstIdx === lastIdx
+            ? `${take}frame ${firstIdx}`
+            : `${take}frames ${firstIdx}–${lastIdx}`,
       })
     }
   }
@@ -625,15 +778,21 @@ function pointerLine(frame: RecordingFrame): string | null {
 
 /** Where one `###` section ends and the next opens: a silence runs long. */
 function chapterBreaks(lines: Line[]): number[] {
-  const cuts: number[] = []
+  const breaks: number[] = []
   let reach = lines[0]?.to ?? 0
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i]
     if (!line) continue
-    if (line.pos - reach > CHAPTER_GAP_MS) cuts.push(line.from)
+    if (line.pos - reach > CHAPTER_GAP_MS) breaks.push(line.from)
     reach = Math.max(reach, line.to)
   }
-  return [...new Set(cuts)].sort((a, b) => a - b)
+  return [...new Set(breaks)].sort((a, b) => a - b)
+}
+
+/** ` · shows: …` when a model captioned this frame. */
+function captionOf(shot: Shot, opts: ResolvedOptions): string {
+  const caption = opts.captions[shot.path]
+  return caption ? ` · shows: ${truncate(caption, 160)}` : ''
 }
 
 /**
@@ -647,28 +806,33 @@ function timeline(
   traces: Trace[],
   keep: Set<string>,
   worth: Map<string, number>,
-  labelSpeakers: boolean
+  labelSpeakers: boolean,
+  opts: ResolvedOptions
 ): string[] {
   type Entry =
+    | { pos: number; rank: -1; cut: ReportCut }
     | { pos: number; rank: 0; shot: Shot }
     | { pos: number; rank: 1; line: Line }
     | { pos: number; rank: 2; trace: Trace }
   const entries: Entry[] = [
+    ...opts.cuts.map((cut): Entry => ({ pos: cut.fromMs, rank: -1, cut })),
     ...shots.map((shot): Entry => ({ pos: shot.pos, rank: 0, shot })),
     ...lines.map((line): Entry => ({ pos: line.pos, rank: 1, line })),
     ...traces.map((trace): Entry => ({ pos: trace.pos, rank: 2, trace })),
   ]
   entries.sort((a, b) => a.pos - b.pos || a.rank - b.rank)
 
-  const cuts = chapterBreaks(lines)
+  const breaks = chapterBreaks(lines)
   const out: string[] = []
-  let cut = 0
+  let chapter = 0
   let under: Shot | undefined
   let run: Shot[] = []
 
   const frameLine = (shot: Shot) => {
     const star = keep.has(shot.key) ? ' ★' : ''
-    out.push(`- **${mmss(shot.pos)}** \`${shot.path}\`${star} ${describe(shot)}`)
+    out.push(
+      `- **${mmss(shot.pos)}** \`${shot.path}\`${star} ${describe(shot)}${captionOf(shot, opts)}`
+    )
     const pointer = pointerLine(shot.frame)
     if (pointer) out.push(pointer)
   }
@@ -681,11 +845,15 @@ function timeline(
       const first = middle[0]
       const last = middle[middle.length - 1]
       if (first && last) {
-        const sheets = [...new Set(middle.map((s) => (s.sheet ? sheetFile(s.sheet, s.prefix) : '')))]
+        const sheets = [
+          ...new Set(middle.map((s) => (s.sheet ? sheetFile(s.sheet, s.prefix) : ''))),
+        ]
           .filter(Boolean)
           .map((g) => `\`${g}\``)
         const on = sheets.length ? `, on ${sheets.join(', ')}` : ''
-        out.push(`- … ${middle.length} more frames, ${span(first.pos, last.pos)}, nothing said over them${on}`)
+        out.push(
+          `- … ${middle.length} more frames, ${span(first.pos, last.pos)}, nothing said over them${on}`
+        )
       }
       if (tail) frameLine(tail)
     } else {
@@ -695,13 +863,19 @@ function timeline(
   }
 
   for (const entry of entries) {
-    while (cut < cuts.length && entry.pos >= (cuts[cut] ?? Infinity)) {
+    while (chapter < breaks.length && entry.pos >= (breaks[chapter] ?? Infinity)) {
       flush()
-      const opener = lines.find((l) => l.pos >= (cuts[cut] ?? 0))
-      cut++
+      const opener = lines.find((l) => l.pos >= (breaks[chapter] ?? 0))
+      chapter++
       if (opener) out.push('', `### ${mmss(opener.pos)} · "${truncate(opener.seg.text, 70)}"`, '')
     }
-    if (entry.rank === 0) {
+    if (entry.rank === -1) {
+      flush()
+      const why = entry.cut.reason ? `: ${truncate(entry.cut.reason, 120)}` : ''
+      out.push(`- ✂ **${span(entry.cut.fromMs, entry.cut.toMs)}** removed after recording${why}`)
+      // What was on screen before the cut is no longer what a line after it is looking at.
+      under = undefined
+    } else if (entry.rank === 0) {
       under = entry.shot
       // Starred frames and the first of a take never hide inside a collapsed run.
       if (keep.has(entry.shot.key) || entry.shot.frame.index === 1) {
@@ -720,7 +894,9 @@ function timeline(
       flush()
       const ev = entry.trace.ev
       const detail = ev.detail ? ` — ${truncate(ev.detail, 200)}` : ''
-      out.push(`  - \`[${ev.level}] @ ${mmss(entry.trace.pos)}\` ${truncate(ev.message, 200)}${detail}`)
+      out.push(
+        `  - \`[${ev.level}] @ ${mmss(entry.trace.pos)}\` ${truncate(ev.message, 200)}${detail}`
+      )
     }
   }
   flush()
@@ -734,11 +910,7 @@ export function buildReport(
   options: ReportOptions = {}
 ): string {
   const opts = resolve(options)
-  const spans = partSpans(recordings)
-  const takes = spans.map((s) => s.rec)
-  const shots = axisShots(takes, spans)
-  const lines = axisLines(takes, spans)
-  const traces = axisEvents(takes, spans)
+  const { spans, takes, shots, lines, traces } = axis(recordings, opts.cuts)
   // One decision for the whole report: label voices only when ≥2 were heard, so
   // S1 means the same (dominant) voice everywhere it appears.
   const labelSpeakers = speakerSet(lines.map((l) => l.seg)).size >= 2
@@ -759,11 +931,14 @@ export function buildReport(
   out.push('')
   const counts: string[] = []
   if (takes.length) {
-    const kind = takes.some((r) => r.meta.frames.length || r.meta.sampled) ? 'screen recording' : 'recording'
+    const kind = takes.some((r) => r.meta.frames.length || r.meta.sampled)
+      ? 'screen recording'
+      : 'recording'
     counts.push(`${mmss(totalMs(spans))} ${kind}`)
   }
   if (shots.length) counts.push(`${shots.length} keyframe${shots.length === 1 ? '' : 's'}`)
-  if (lines.length) counts.push(`${lines.length} ${lines.length === 1 ? opts.words.line : opts.words.lines}`)
+  if (lines.length)
+    counts.push(`${lines.length} ${lines.length === 1 ? opts.words.line : opts.words.lines}`)
   if (traces.length) counts.push(`${traces.length} error${traces.length === 1 ? '' : 's'} captured`)
   if (!counts.length) counts.push('empty')
   const when = hhmm(first) === hhmm(last) ? dateTime(first) : `${dateTime(first)}–${hhmm(last)}`
@@ -776,7 +951,7 @@ export function buildReport(
   out.push(...urlLines(opts))
   out.push(...introParagraph(takes, spans, opts, labelSpeakers))
   out.push(...interruptedLines(takes))
-  if (takes.length) out.push(...orientation(takes, opts))
+  if (takes.length) out.push(...orientation(takes, shots, opts))
   out.push(...scopeLines(takes))
 
   if (top.length) {
@@ -790,7 +965,9 @@ export function buildReport(
       const said = line ? ` — "${truncate(line.seg.text, 140)}"` : ''
       const err = errorNear(shot, traces)
       const failed = err ? ` · error at ${mmss(err.pos)}: ${truncate(err.ev.message, 100)}` : ''
-      out.push(`${i + 1}. \`${shot.path}\` · ${mmss(shot.pos)} · ${describe(shot)}${failed}${said}`)
+      out.push(
+        `${i + 1}. \`${shot.path}\` · ${mmss(shot.pos)} · ${describe(shot)}${captionOf(shot, opts)}${failed}${said}`
+      )
     })
     out.push('')
   }
@@ -816,13 +993,16 @@ export function buildReport(
       )
       out.push('')
     }
-    out.push(...timeline(shots, lines, traces, keep, worth, labelSpeakers))
+    out.push(...timeline(shots, lines, traces, keep, worth, labelSpeakers, opts))
     out.push('')
   }
 
   if (takes.length) {
     const videos = spans
-      .map((s) => `\`${opts.videoPath(s.rec.index, s.rec.meta.videoFile)}\` (${mmss(s.rec.meta.durationMs)})`)
+      .map(
+        (s) =>
+          `\`${opts.videoPath(s.rec.index, s.rec.meta.videoFile)}\` (${mmss(s.rec.meta.durationMs)})`
+      )
       .join(', ')
     const said = takes.some((r) => r.meta.transcript.length)
     out.push(
@@ -875,6 +1055,7 @@ export function buildRecordingJson(session: Session, recording: Recording, url?:
         video: rec.videoFile,
         transcriber,
         transcriberLabel: rec.transcriberLabel,
+        ...(rec.polished ? { polished: true } : {}),
         transcriptReviewed: Boolean(rec.reviewed),
         eventScope: rec.eventScope,
         droppedEvents: rec.droppedEvents ?? 0,
@@ -889,6 +1070,8 @@ export function buildRecordingJson(session: Session, recording: Recording, url?:
           held: f.held,
           transient: f.transient,
           pointer: f.pointer,
+          // Only when a human moved it onto the walkthrough's axis.
+          ...(f.tl === undefined ? {} : { tlMs: f.tl }),
         })),
         transcript: spokenWindows(rec).map((s) => ({
           at: mmss(s.seg.t),
@@ -899,10 +1082,12 @@ export function buildRecordingJson(session: Session, recording: Recording, url?:
           aboutToMs: s.to,
           text: s.seg.text,
           ...(s.seg.speaker === undefined ? {} : { speaker: s.seg.speaker }),
+          ...(s.seg.tl === undefined ? {} : { tlMs: s.seg.tl }),
         })),
         events: rec.events.map((e) => ({
           level: e.level,
           at: mmss(Math.max(0, e.ts - rec.startedAt)),
+          tMs: Math.max(0, e.ts - rec.startedAt),
           message: e.message,
           detail: e.detail,
         })),
@@ -1004,7 +1189,9 @@ export function buildManifestTxt(
   ]
   const spoken = parts.filter((p) => p.meta.transcript.length)
   if (spoken.length) {
-    lines.push(`note: line stamps are ${opts.words.stamp}; the bracketed range is the window the line covers`)
+    lines.push(
+      `note: line stamps are ${opts.words.stamp}; the bracketed range is the window the line covers`
+    )
   }
   for (const part of parts) {
     lines.push(`--- transcript: ${recDirName(part.index)} (${mmss(part.meta.durationMs)}) ---`)

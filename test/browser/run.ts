@@ -151,10 +151,14 @@ function arg(name: string): string | undefined {
 
 if (import.meta.main) {
   const flags = new Set(['--out', '--ref', '--transcript', '--title', '--extra'])
-  const clips = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !flags.has(all[i - 1] ?? ''))
+  const clips = process.argv
+    .slice(2)
+    .filter((a, i, all) => !a.startsWith('--') && !flags.has(all[i - 1] ?? ''))
   const out = arg('--out')
   if (!clips.length || !out) {
-    console.error('usage: bun test/browser/run.ts <clip>… --out <dir> [--ref <ref>] [--transcript <json>]')
+    console.error(
+      'usage: bun test/browser/run.ts <clip>… --out <dir> [--ref <ref>] [--transcript <json>]'
+    )
     process.exit(1)
   }
   const transcriptPath = arg('--transcript')
@@ -170,5 +174,6 @@ if (import.meta.main) {
   console.log(
     `${result.frameCount} frames · ${result.lineCount} lines · ${(result.durationMs / 1000).toFixed(1)}s video · ${(result.ms / 1000).toFixed(1)}s run`
   )
-  for (const s of result.stages) console.log(`  ${String(s.at).padStart(6)}ms ${s.stage}${s.detail ? ` — ${s.detail}` : ''}`)
+  for (const s of result.stages)
+    console.log(`  ${String(s.at).padStart(6)}ms ${s.stage}${s.detail ? ` — ${s.detail}` : ''}`)
 }

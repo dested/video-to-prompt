@@ -73,13 +73,15 @@ const result = await distill(clips, {
 
 ### Options worth knowing
 
-| Option | Default | |
-| --- | --- | --- |
-| `frameEngine` | `'auto'` | `'webcodecs'` or `'seek'` to force one. `auto` uses WebCodecs wherever the browser can decode the file |
-| `sheetWidth` | `2000` | Contact sheet width. 2000 px is Claude Code's display limit; pass 2576 for a model fed through the API |
-| `includeVideo` | `true` | Put each take's video in the file set. Off when the host stores the video itself |
-| `report.narration` | `'speech'` | `'log'` when the lines are a tool's own action log (exact, not transcribed); every word the report uses for them changes |
-| `report.narrationBy` / `report.intro` / `report.videoPath` | | Who wrote the log, the opening sentence, and where a take's video lives when it isn't `rec-NN/<file>` |
+| Option                                                     | Default    |                                                                                                                                                 |
+| ---------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frameEngine`                                              | `'auto'`   | `'webcodecs'` or `'seek'` to force one. `auto` uses WebCodecs wherever the browser can decode the file                                          |
+| `sheetWidth`                                               | `2000`     | Contact sheet width. 2000 px is Claude Code's display limit; pass 2576 for a model fed through the API                                          |
+| `includeVideo`                                             | `true`     | Put each take's video in the file set. Off when the host stores the video itself                                                                |
+| `report.narration`                                         | `'speech'` | `'log'` when the lines are a tool's own action log (exact, not transcribed); every word the report uses for them changes                        |
+| `report.narrationBy` / `report.intro` / `report.videoPath` |            | Who wrote the log, the opening sentence, and where a take's video lives when it isn't `rec-NN/<file>`                                           |
+| `report.cuts`                                              |            | Stretches removed after recording (`{ fromMs, toMs, reason? }` on the walkthrough's clock). Left out of the report and marked ✂ in the timeline |
+| `report.captions`                                          |            | One-sentence frame captions by path, written by a model. Printed as `shows:` and labelled as a model's reading                                  |
 
 ## The output package
 
@@ -140,25 +142,29 @@ at once.
 `distill()` is the front door; each stage is public for callers that need one alone, and so a
 live recorder can share the same signature and selection rules.
 
-| Export | Does |
-| --- | --- |
-| `probeClip(file, { poster? })` | duration / dimensions / has-video / poster still, container-first |
-| `extractFrames(file, durationMs, { narration?, engine? })` | keyframes plus their JPEGs, the engine used and the cadence |
-| `openFrameSource(file)` | the decoder underneath: WebCodecs with a mid-stream fallback to seeking |
-| `Selector` / `diffSignatures` / `signatureFromRgba` | the selection rule and the signature it runs on. Pure, no DOM |
-| `makeGrids(frames, { width? })` | contact sheets, batched to match the report's frame→sheet map |
-| `decodeMono(file)` / `encodeWav(samples)` | narration → 16 kHz mono Float32 → 16-bit PCM WAV |
-| `buildReport` / `buildManifestTxt` / `buildRecordingJson` / `buildTranscriptTxt` | the format's writers |
-| `rankFrames(recordings)` | the "start here" frames as data, for a host that hands an agent images directly |
-| `partSpans` / `linePos` / `framePos` / `totalMs` | the unified timeline every position comes from |
-| `CancelledError` / `isCancelled` | what every stage throws on `signal` abort |
+| Export                                                                           | Does                                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `probeClip(file, { poster? })`                                                   | duration / dimensions / has-video / poster still, container-first                                             |
+| `extractFrames(file, durationMs, { narration?, engine? })`                       | keyframes plus their JPEGs, the engine used and the cadence                                                   |
+| `openFrameSource(file)`                                                          | the decoder underneath: WebCodecs with a mid-stream fallback to seeking                                       |
+| `Selector` / `diffSignatures` / `signatureFromRgba`                              | the selection rule and the signature it runs on. Pure, no DOM                                                 |
+| `makeGrids(frames, { width? })`                                                  | contact sheets, batched to match the report's frame→sheet map                                                 |
+| `decodeMono(file)` / `encodeWav(samples)`                                        | narration → 16 kHz mono Float32 → 16-bit PCM WAV                                                              |
+| `buildReport` / `buildManifestTxt` / `buildRecordingJson` / `buildTranscriptTxt` | the format's writers                                                                                          |
+| `rankFrames(recordings, { cuts? })`                                              | the "start here" frames as data, for a host that hands an agent images directly                               |
+| `evidenceAt(recordings, ms, { cuts? })`                                          | what one moment holds: the line said there, the frame that best shows it, an error beside it                  |
+| `readRecordingJson(json)`                                                        | a take's `recording.json` back into the shapes (format 1 or 2), so a server or CLI can run the report writers |
+| `partSpans` / `linePos` / `framePos` / `totalMs`                                 | the unified timeline every position comes from                                                                |
+| `CancelledError` / `isCancelled`                                                 | what every stage throws on `signal` abort                                                                     |
 
 ## Format
 
 `recording.json` and `MANIFEST.txt` carry `format: video-to-prompt/2`. Format 2 only adds
 fields: frame `change` boxes, `held` and `transient`, the `narration` and `end` frame reasons,
-`sampling`, and `transcriberLabel`. It also changes what `dist` counts (cells of the 160-column
-luma grid). A reader of format 1 keeps working.
+`sampling`, `transcriberLabel`, `polished`, `tlMs` on moved frames and lines, and `tMs` on events.
+It also changes what `dist` counts (cells of the 160-column luma grid). A reader of format 1 keeps
+working, and `readRecordingJson` reads both: a server holding only the files can rebuild
+`report.md` with `buildReport`, and a format 1 take never claims "most of the screen changed".
 
 ## Constraints worth knowing
 

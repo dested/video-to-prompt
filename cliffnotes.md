@@ -13,7 +13,9 @@ changed outlined, a timed transcript (via a pluggable speech engine), and a
 is meant to become Handback's only pipeline (see Status).
 
 Public repo **github.com/dested/video-to-prompt**; npm name **`@dested/video-to-prompt`**
-(1.0.0 prepared, not yet published: needs Sal's `npm login`).
+(1.1.0 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
+git tag (`github:dested/video-to-prompt#v1.1.0`): each `vX.Y.Z` tag is a release-only commit off
+main with `dist/` force-added, because bun won't run `prepare` for git deps.
 
 ## Quick Reference
 
@@ -57,7 +59,10 @@ src/
   audio.ts       decodeMono via mediabunny AudioSampleSink, 30 s resample chunks, AAC priming trim,
                  decodeAudioData fallback; encodeWav (16-bit PCM)
   report.ts      The format's writers: report.md (Start here / sheets / Timeline), MANIFEST.txt,
-                 transcript.txt, recording.json; rankFrames, whereOnScreen; ReportOptions voice
+                 transcript.txt, recording.json; rankFrames, evidenceAt, whereOnScreen;
+                 ReportOptions voice + host hooks (cuts ✂, captions `shows:`)
+  read.ts        readRecordingJson: recording.json (format 1 or 2, extension shape) → Recording,
+                 so a server/CLI can rebuild report.md. Pure, zod-free, tolerant
   media.ts       Offscreen <video> plumbing: readyVideo/seekTo/toJpeg, iOS wake-ups, signals
   cancel.ts      CancelledError, throwIfAborted, isCancelled, abortable
   timeline.ts    The unified axis: partSpans laid end to end, linePos/framePos (tl override)
@@ -88,7 +93,7 @@ frames and encodes only keepers.
 ## Gotchas & hard rules
 
 - **The recording shapes and the emitted file set are a FORMAT.** Readers exist outside this repo
-  (Handback viewer, `cli/push.ts`, MCP brief formatter, extension, bx). Format 2 only *adds*
+  (Handback viewer, `cli/push.ts`, MCP brief formatter, extension, bx). Format 2 only _adds_
   fields; keep it that way or bump the format. Paths `rec-NN/frames/NN-mmss.jpg`,
   `grids/grid_NN.jpg` are contract.
 - **Handback still carries its own drifted copy** until the migration lands. Don't fix bugs there
@@ -107,19 +112,25 @@ frames and encodes only keepers.
   package imports under SSR and bare Node.
 - **Relative imports carry `.js`**: needed for bare-Node ESM consumers.
 - **Report snapshot tests pin `process.env.TZ = 'UTC'`**: dateTime/hhmm are local-time.
-- **Nothing touches the DOM at module scope.**
+- **Nothing touches the DOM at module scope.** Handback's server imports the package for
+  `readRecordingJson`/`buildReport`; keep the index importable under Bun/Node.
+- **recording.json round-trips.** `buildRecordingJson` → `readRecordingJson` → `buildReport` must
+  equal the in-memory report (unit-tested). A new field the report reads needs writing too.
 
 ## Status
 
 - **Done (2026-08-06)**: extracted from Handback; pluggable transcribe/polish; ReportOptions.
-- **Done (2026-10-15, uncommitted)**: v2. WebCodecs engine via mediabunny with seek fallback,
+- **Done (2026-10-15)**: v2. WebCodecs engine via mediabunny with seek fallback,
   250 ms cadence, signature + Selector, readable 2000 px sheets with change boxes, report v2
   (Start here, errors beside frames, log/speech wording), container-first probe, chunked audio,
   cancellation, 36 unit tests, fixture eval harness, README, package renamed. Fixture 9/9 states
   (v1 6/9); real clip 2.6 s (v1 33.3 s); 5-min sparse-keyframe webm 22 s (v1 358 s).
   Review page: https://claude.ai/artifact/NbTveyzKvZNgdSqka4Z1nG
-- **Waiting on Sal**: approve the v2 sample, commit, `npm login` + publish, then the Handback
-  migration (web + extension, MCP brief H1–H3), bx (`narration: 'log'`, drop `wording.ts`),
+- **Done (2026-10-15)**: v2 committed (`1a1930c`), tag `v1.0.0`; 1.1.0 adds the recording.json
+  reader and host hooks for Handback's server-side brief.
+- **In progress**: the Handback migration (MCP brief, web capture, extension), per
+  `W:\code\handback\plans\2026-10-15-video-to-prompt-v2-and-brief.md`.
+- **Waiting on Sal**: `npm login` + publish; bx (`narration: 'log'`, drop `wording.ts`) and
   coterie (npm package instead of vendored dist).
 - **Open**: recorder chrome (Handback's side panel, floating bar) still causes noise frames on
   real clips; an `ignore`-regions option waits for Handback to pass its own geometry.

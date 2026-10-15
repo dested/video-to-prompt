@@ -104,14 +104,21 @@ export function install(lib: HarnessLib): void {
         onProgress: (p) => {
           if (p.stage === last) return
           last = p.stage
-          stages.push({ stage: p.stage, at: Math.round(performance.now() - started), detail: p.detail })
+          stages.push({
+            stage: p.stage,
+            at: Math.round(performance.now() - started),
+            detail: p.detail,
+          })
         },
         ...req.extra,
       })
 
       const files: RunResult['files'] = []
       for (const file of out.files) {
-        const res = await fetch(`/out/${req.outPrefix}/${file.path}`, { method: 'PUT', body: file.blob })
+        const res = await fetch(`/out/${req.outPrefix}/${file.path}`, {
+          method: 'PUT',
+          body: file.blob,
+        })
         if (!res.ok) throw new Error(`upload ${file.path}: ${res.status}`)
         files.push({ path: file.path, bytes: file.blob.size })
       }

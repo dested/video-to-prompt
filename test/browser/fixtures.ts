@@ -72,12 +72,32 @@ export const TRUTH: Truth = {
 /** Scripted narration over the fixture, ms from clip start, as a transcriber would return it. */
 export const NARRATION = [
   { t: 500, d: 2300, text: "Okay so this is the dashboard, I'm going to go to invoices." },
-  { t: 3500, d: 3000, text: 'I save the invoice and it says saved, but it disappears really fast.' },
-  { t: 7200, d: 3300, text: 'And now look at the total, it went up by five dollars. It should still be twelve forty.' },
-  { t: 16200, d: 2600, text: "Also the email validation shows up before I've even typed anything." },
-  { t: 19500, d: 3000, text: "When I click send it asks me to confirm, which is fine, I'll cancel." },
+  {
+    t: 3500,
+    d: 3000,
+    text: 'I save the invoice and it says saved, but it disappears really fast.',
+  },
+  {
+    t: 7200,
+    d: 3300,
+    text: 'And now look at the total, it went up by five dollars. It should still be twelve forty.',
+  },
+  {
+    t: 16200,
+    d: 2600,
+    text: "Also the email validation shows up before I've even typed anything.",
+  },
+  {
+    t: 19500,
+    d: 3000,
+    text: "When I click send it asks me to confirm, which is fine, I'll cancel.",
+  },
   { t: 24500, d: 3000, text: 'Scrolling down, the rows look right.' },
-  { t: 29600, d: 1300, text: 'And then payment failed, card declined, but I never entered a card.' },
+  {
+    t: 29600,
+    d: 1300,
+    text: 'And then payment failed, card declined, but I never entered a card.',
+  },
 ]
 
 const PAGE = /* html */ `<!doctype html>
@@ -179,7 +199,9 @@ const PAGE = /* html */ `<!doctype html>
   }
 </script>`
 
-export async function makeAppFixture(dir = resolve(import.meta.dir, '../.fixtures/app')): Promise<string> {
+export async function makeAppFixture(
+  dir = resolve(import.meta.dir, '../.fixtures/app')
+): Promise<string> {
   const framesDir = join(dir, 'frames')
   await rm(dir, { recursive: true, force: true })
   await mkdir(framesDir, { recursive: true })
@@ -190,7 +212,10 @@ export async function makeAppFixture(dir = resolve(import.meta.dir, '../.fixture
     await page.setContent(PAGE)
     const count = DURATION_S * FPS
     for (let f = 0; f < count; f++) {
-      await page.evaluate((t) => (window as unknown as { renderAt(t: number): void }).renderAt(t), (f * 1000) / FPS)
+      await page.evaluate(
+        (t) => (window as unknown as { renderAt(t: number): void }).renderAt(t),
+        (f * 1000) / FPS
+      )
       await page.screenshot({ path: join(framesDir, `${String(f).padStart(5, '0')}.png`) })
     }
   } finally {

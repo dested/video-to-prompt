@@ -10,7 +10,14 @@ export function flat(luma = 240): Signature {
 }
 
 /** A copy of `base` with a rectangle (in cells) painted `luma`. */
-export function paint(base: Signature, x: number, y: number, w: number, h: number, luma = 30): Signature {
+export function paint(
+  base: Signature,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  luma = 30
+): Signature {
   const out = { ...base, luma: base.luma.slice() }
   for (let yy = y; yy < Math.min(base.rows, y + h); yy++) {
     for (let xx = x; xx < Math.min(base.cols, x + w); xx++) out.luma[yy * base.cols + xx] = luma

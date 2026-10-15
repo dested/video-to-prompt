@@ -262,6 +262,7 @@ exports[`files beside the report recording.json 1`] = `
         "at": "0:16",
         "level": "error",
         "message": "TypeError: cannot read properties of undefined (reading "code")",
+        "tMs": 16100,
       },
     ],
     "frames": [

@@ -1,4 +1,10 @@
-import { diffSignatures, unionBox, type CellBox, type SigDiff, type Signature } from './signature.js'
+import {
+  diffSignatures,
+  unionBox,
+  type CellBox,
+  type SigDiff,
+  type Signature,
+} from './signature.js'
 
 /**
  * Which candidate frames become keyframes. Pure: it sees signatures and times,
@@ -195,7 +201,10 @@ export class Selector {
         this.pending = cand
         this.pendingSince = t
         out.push({ kind: 'hold', slot: 'pending' })
-      } else if (!isMajor(this.diff(this.pending.sig, sig)) || t - this.pendingSince >= MAX_MOTION_MS) {
+      } else if (
+        !isMajor(this.diff(this.pending.sig, sig)) ||
+        t - this.pendingSince >= MAX_MOTION_MS
+      ) {
         this.keep(this.pending, 'start', out, 'pending').dist = undefined
         this.pending = null
       } else {
@@ -363,7 +372,9 @@ export class Selector {
   }
 
   private record(cand: Candidate, reason: PickReason): Pick {
-    const previous = [...this.kept].filter((k) => k.pick.t < cand.t).sort((a, b) => b.pick.t - a.pick.t)[0]
+    const previous = [...this.kept]
+      .filter((k) => k.pick.t < cand.t)
+      .sort((a, b) => b.pick.t - a.pick.t)[0]
     const pick: Pick = { id: this.nextId++, t: cand.t, reason, dist: cand.novelty.changed }
     if (previous && previous.pick.held === undefined) previous.pick.held = cand.t - previous.pick.t
     // The box says what changed from what was really on screen, so a toast
@@ -377,7 +388,12 @@ export class Selector {
     return pick
   }
 
-  private keep(cand: Candidate, reason: PickReason, out: SelectAction[], from: Slot | 'current'): Pick {
+  private keep(
+    cand: Candidate,
+    reason: PickReason,
+    out: SelectAction[],
+    from: Slot | 'current'
+  ): Pick {
     const pick = this.record(cand, reason)
     out.push({ kind: 'keep', from, pick })
     this.enforceBudget(out)
@@ -442,7 +458,14 @@ export class Selector {
 }
 
 /** `out` = `mask` grown by rx columns and ry rows (a separable max filter). */
-function dilate(mask: Uint8Array, out: Uint8Array, cols: number, rows: number, rx: number, ry: number): void {
+function dilate(
+  mask: Uint8Array,
+  out: Uint8Array,
+  cols: number,
+  rows: number,
+  rx: number,
+  ry: number
+): void {
   const row = new Uint8Array(mask.length)
   for (let y = 0; y < rows; y++) {
     // Two sweeps per row: nearest set cell to the left, then to the right.

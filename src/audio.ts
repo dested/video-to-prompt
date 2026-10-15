@@ -23,7 +23,10 @@ export interface DecodeOptions {
 }
 
 /** Mixdown to mono at 16 kHz. Null when there's no decodable audio, or it's silent. */
-export async function decodeMono(file: Blob, opts: DecodeOptions = {}): Promise<Float32Array | null> {
+export async function decodeMono(
+  file: Blob,
+  opts: DecodeOptions = {}
+): Promise<Float32Array | null> {
   try {
     const fast = await decodeTrack(file, opts.signal)
     if (fast !== undefined) return fast
@@ -35,7 +38,10 @@ export async function decodeMono(file: Blob, opts: DecodeOptions = {}): Promise<
 }
 
 /** Undefined = this path can't say (no WebCodecs, unknown container, codec refused); fall back. */
-async function decodeTrack(file: Blob, signal?: AbortSignal): Promise<Float32Array | null | undefined> {
+async function decodeTrack(
+  file: Blob,
+  signal?: AbortSignal
+): Promise<Float32Array | null | undefined> {
   if (typeof AudioDecoder === 'undefined') return undefined
   const mb = await import('mediabunny')
   const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS })

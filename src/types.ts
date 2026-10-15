@@ -13,13 +13,7 @@ import type { ClipProbe } from './probe.js'
 // ── the public surface ─────────────────────────────────────────────────────
 
 export type DistillStage =
-  | 'probe'
-  | 'audio'
-  | 'transcribe'
-  | 'polish'
-  | 'frames'
-  | 'sheets'
-  | 'build'
+  'probe' | 'audio' | 'transcribe' | 'polish' | 'frames' | 'sheets' | 'build'
 
 export interface StageProgress {
   stage: DistillStage
@@ -57,6 +51,9 @@ export interface OutputFile {
  * removed or renamed.
  */
 export const FORMAT = 'video-to-prompt/2'
+
+/** What `readRecordingJson` calls a file with no `format` stamp: everything written before format 2. */
+export const FORMAT_1 = 'video-to-prompt/1'
 
 export interface PageEvent {
   level: 'error' | 'warn' | 'network'
@@ -151,6 +148,13 @@ export interface RecordingMeta {
   droppedEvents?: number
   /** The take's video, named for the container it actually arrived in. */
   videoFile: string
+  /**
+   * The format this take was read from (`readRecordingJson` sets it; `FORMAT_1`
+   * for an unstamped file). Absent: built in memory by this version. A format 1
+   * take has no change boxes, so the report never reads a missing `change` as
+   * "the whole screen changed" for it.
+   */
+  format?: string
 }
 
 /** One take. A walkthrough is one or more of them laid end to end on one clock. */

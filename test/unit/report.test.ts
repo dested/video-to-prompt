@@ -1,13 +1,21 @@
 import { describe, expect, test } from 'bun:test'
+import { readRecordingJson } from '../../src/read.ts'
 import {
   buildManifestTxt,
   buildRecordingJson,
   buildReport,
   buildTranscriptTxt,
+  evidenceAt,
   rankFrames,
   whereOnScreen,
 } from '../../src/report.ts'
-import type { Recording, RecordingFrame, Session, TranscriptSegment } from '../../src/types.ts'
+import {
+  FORMAT_1,
+  type Recording,
+  type RecordingFrame,
+  type Session,
+  type TranscriptSegment,
+} from '../../src/types.ts'
 
 // Local-time stamps in the report must not depend on the machine running the tests.
 process.env.TZ = 'UTC'
@@ -24,7 +32,11 @@ const session: Session = {
   recCount: 1,
 }
 
-function frame(index: number, t: number, rest: Omit<RecordingFrame, 'index' | 't' | 'file'>): RecordingFrame {
+function frame(
+  index: number,
+  t: number,
+  rest: Omit<RecordingFrame, 'index' | 't' | 'file'>
+): RecordingFrame {
   const file = `frames/${String(index).padStart(2, '0')}-${String(Math.round(t / 100)).padStart(4, '0')}.jpg`
   return { index, t, file, ...rest }
 }
@@ -33,21 +45,61 @@ function frame(index: number, t: number, rest: Omit<RecordingFrame, 'index' | 't
 const frames: RecordingFrame[] = [
   frame(1, 0, { reason: 'start', held: 3000 }),
   frame(2, 3000, { reason: 'change', dist: 838, held: 2250 }),
-  frame(3, 5250, { reason: 'change', dist: 46, held: 500, transient: true, change: { x: 0.913, y: 0.933, w: 0.075, h: 0.044 } }),
-  frame(4, 9000, { reason: 'change', dist: 34, held: 7000, change: { x: 0.794, y: 0.144, w: 0.181, h: 0.044 } }),
-  frame(5, 16000, { reason: 'change', dist: 106, held: 3000, change: { x: 0.794, y: 0.189, w: 0.113, h: 0.144 } }),
+  frame(3, 5250, {
+    reason: 'change',
+    dist: 46,
+    held: 500,
+    transient: true,
+    change: { x: 0.913, y: 0.933, w: 0.075, h: 0.044 },
+  }),
+  frame(4, 9000, {
+    reason: 'change',
+    dist: 34,
+    held: 7000,
+    change: { x: 0.794, y: 0.144, w: 0.181, h: 0.044 },
+  }),
+  frame(5, 16000, {
+    reason: 'change',
+    dist: 106,
+    held: 3000,
+    change: { x: 0.794, y: 0.189, w: 0.113, h: 0.144 },
+  }),
   frame(6, 19000, { reason: 'change', dist: 12283, held: 3000 }),
-  frame(7, 22000, { reason: 'change', dist: 34, held: 1250, change: { x: 0.4, y: 0.5, w: 0.05, h: 0.03 } }),
-  frame(8, 24000, { reason: 'change', dist: 387, held: 3250, change: { x: 0.15, y: 0.089, w: 0.538, h: 0.844 } }),
-  frame(9, 27250, { reason: 'change', dist: 36, held: 750, transient: true, change: { x: 0.863, y: 0.3, w: 0.075, h: 0.033 } }),
+  frame(7, 22000, {
+    reason: 'change',
+    dist: 34,
+    held: 1250,
+    change: { x: 0.4, y: 0.5, w: 0.05, h: 0.03 },
+  }),
+  frame(8, 24000, {
+    reason: 'change',
+    dist: 387,
+    held: 3250,
+    change: { x: 0.15, y: 0.089, w: 0.538, h: 0.844 },
+  }),
+  frame(9, 27250, {
+    reason: 'change',
+    dist: 36,
+    held: 750,
+    transient: true,
+    change: { x: 0.863, y: 0.3, w: 0.075, h: 0.033 },
+  }),
   frame(10, 29500, { reason: 'end', dist: 1225, held: 1500 }),
 ]
 
 const transcript: TranscriptSegment[] = [
   { t: 600, d: 2100, text: 'This is the checkout page for a single order.' },
   { t: 4800, d: 1500, text: 'Saving shows a toast that disappears fast.' },
-  { t: 8200, d: 2600, text: 'Look at the total, it says 1,240 but the line items add up to 1,180.' },
-  { t: 15600, d: 2400, text: 'The coupon field still throws a validation error even with a valid code.' },
+  {
+    t: 8200,
+    d: 2600,
+    text: 'Look at the total, it says 1,240 but the line items add up to 1,180.',
+  },
+  {
+    t: 15600,
+    d: 2400,
+    text: 'The coupon field still throws a validation error even with a valid code.',
+  },
   { t: 19400, d: 2000, text: 'The shipping modal opens fine.' },
   { t: 26800, d: 1800, text: 'Hovering the info icon shows a tooltip.' },
   { t: 29000, d: 1700, text: "And that's where it ends up." },
@@ -71,7 +123,13 @@ function take(over: Partial<Recording['meta']> = {}, index = 1): Recording {
       transcriber: 'groq',
       transcriberLabel: 'Whisper large-v3 (Groq)',
       sampling: { engine: 'webcodecs', stepMs: 250 },
-      events: [{ level: 'error', message: 'TypeError: cannot read properties of undefined (reading "code")', ts: T0 + 16100 }],
+      events: [
+        {
+          level: 'error',
+          message: 'TypeError: cannot read properties of undefined (reading "code")',
+          ts: T0 + 16100,
+        },
+      ],
       videoFile: 'video.webm',
       ...over,
     },
@@ -80,14 +138,25 @@ function take(over: Partial<Recording['meta']> = {}, index = 1): Recording {
 
 describe('report', () => {
   test('a narrated take', () => {
-    expect(buildReport(session, [take()], { url: 'https://handback.example/w/s1', source: 'handback' })).toMatchSnapshot()
+    expect(
+      buildReport(session, [take()], { url: 'https://handback.example/w/s1', source: 'handback' })
+    ).toMatchSnapshot()
   })
 
   test('two sittings, two voices, live dictation', () => {
     const voices = transcript.map((s, i) => ({ ...s, speaker: i % 3 === 1 ? 2 : 1 }))
     const later = T0 + 3600000
     const second = {
-      ...take({ startedAt: later, transcript: voices.slice(0, 3), transcriber: undefined, transcriberLabel: undefined, events: [] }, 2),
+      ...take(
+        {
+          startedAt: later,
+          transcript: voices.slice(0, 3),
+          transcriber: undefined,
+          transcriberLabel: undefined,
+          events: [],
+        },
+        2
+      ),
       createdAt: later,
     }
     const first = take({ transcript: voices })
@@ -95,18 +164,26 @@ describe('report', () => {
   })
 
   test("a tool's action log", () => {
-    const report = buildReport(session, [take({ transcriber: undefined, transcriberLabel: undefined })], {
-      narration: 'log',
-      narrationBy: 'bx',
-      intro: 'bx drove this browser session.',
-      videoPath: () => 'video.webm',
-    })
+    const report = buildReport(
+      session,
+      [take({ transcriber: undefined, transcriberLabel: undefined })],
+      {
+        narration: 'log',
+        narrationBy: 'bx',
+        intro: 'bx drove this browser session.',
+        videoPath: () => 'video.webm',
+      }
+    )
     expect(report).toMatchSnapshot()
     expect(report).not.toContain('spoken')
   })
 
   test('a silent take', () => {
-    expect(buildReport(session, [take({ transcript: [], transcriber: undefined, transcriberLabel: undefined })])).toMatchSnapshot()
+    expect(
+      buildReport(session, [
+        take({ transcript: [], transcriber: undefined, transcriberLabel: undefined }),
+      ])
+    ).toMatchSnapshot()
   })
 
   test('the title is the session name, once', () => {
@@ -123,7 +200,9 @@ describe('files beside the report', () => {
   })
 
   test('recording.json', () => {
-    const json: unknown = JSON.parse(buildRecordingJson(session, take(), 'https://handback.example/w/s1'))
+    const json: unknown = JSON.parse(
+      buildRecordingJson(session, take(), 'https://handback.example/w/s1')
+    )
     expect(json).toMatchSnapshot()
   })
 
@@ -159,5 +238,146 @@ describe('ranking', () => {
     expect(whereOnScreen({ x: 0.02, y: 0.02, w: 0.1, h: 0.05 })).toMatchSnapshot()
     expect(whereOnScreen({ x: 0.4, y: 0.45, w: 0.2, h: 0.1 })).toMatchSnapshot()
     expect(whereOnScreen({ x: 0.15, y: 0.089, w: 0.538, h: 0.844 })).toMatchSnapshot()
+  })
+})
+
+/** recording.json as a plain object, for tests that age it into older writers' shapes. */
+function fileOf(rec: Recording): Record<string, unknown> {
+  const value: unknown = JSON.parse(
+    buildRecordingJson(session, rec, 'https://handback.example/w/s1')
+  )
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new Error('not an object')
+  return { ...value }
+}
+
+function read(input: unknown): Recording {
+  const got = readRecordingJson(input)
+  if (!got) throw new Error('unreadable')
+  return got.recording
+}
+
+describe('reading recording.json back', () => {
+  test('round trip: the report from the file is the report from memory', () => {
+    const original = take({ polished: true })
+    const back = readRecordingJson(
+      buildRecordingJson(session, original, 'https://handback.example/w/s1')
+    )
+    expect(back?.url).toBe('https://handback.example/w/s1')
+    expect(back?.session.name).toBe('Checkout total')
+    const opts = { url: 'https://handback.example/w/s1', source: 'handback', polishedBy: 'Claude' }
+    const fromFile = back ? buildReport(session, [back.recording], opts) : ''
+    expect(fromFile).toBe(buildReport(session, [original], opts))
+    expect(fromFile).toContain('wording cleaned up by Claude')
+  })
+
+  test('two sittings with voices and a moved line survive the trip', () => {
+    const voices = transcript.map((s, i) => ({ ...s, speaker: i % 3 === 1 ? 2 : 1 }))
+    const moved = voices.map((s, i) => (i === 2 ? { ...s, tl: 40000 } : s))
+    const later = T0 + 3600000
+    const first = take({ transcript: moved })
+    const second = {
+      ...take({ startedAt: later, transcript: voices.slice(0, 3), events: [] }, 2),
+      createdAt: later,
+    }
+    const back = [first, second].map((r) => read(buildRecordingJson(session, r)))
+    expect(buildReport(session, back)).toBe(buildReport(session, [first, second]))
+  })
+
+  test('a format 1 file never claims the whole screen changed', () => {
+    const file = fileOf(take())
+    delete file.format
+    const v1 = read(file)
+    expect(v1.meta.format).toBe(FORMAT_1)
+    // Format 1 had no change boxes at all.
+    for (const f of v1.meta.frames) delete f.change
+    const report = buildReport(session, [v1])
+    expect(report).not.toContain('most of the screen changed')
+    expect(buildReport(session, [take()])).toContain('most of the screen changed')
+  })
+
+  test("the extension's shape: webspeech, folder-prefixed files, m:ss-only events", () => {
+    const value: unknown = JSON.parse(`{
+      "session": { "name": "Old one", "slug": "2026-07-29-1412-old", "createdAt": "2026-07-29T14:12:00.000Z", "origin": "https://app.example" },
+      "recording": {
+        "part": 2, "dir": "rec-02", "startedAt": "2026-07-29T14:12:05.000Z", "durationMs": 20000, "sampled": 20,
+        "video": "walkthrough.webm", "transcriber": "webspeech", "transcriptReviewed": false,
+        "frames": [
+          { "index": 1, "at": "0:00", "tMs": 0, "file": "rec-02/frames/01-0000.jpg", "reason": "start" },
+          { "index": 2, "at": "0:05", "tMs": 5000, "file": "frames/02-0005.jpg", "reason": "click", "dist": 400,
+            "pointer": { "nx": 0.5, "ny": 0.4, "selector": "button.save", "text": "Save" } },
+          { "index": 3, "file": "frames/03-0009.jpg", "reason": "teleport" },
+          "junk"
+        ],
+        "transcript": [{ "at": "0:04", "tMs": 4000, "endMs": 6500, "aboutFromMs": 2000, "aboutToMs": 9000, "text": "Saving does nothing" }],
+        "events": [{ "level": "error", "at": "0:06", "message": "500 POST /api/save" }, { "level": "debug", "at": "0:07", "message": "x" }]
+      }
+    }`)
+    const got = readRecordingJson(value)
+    const rec = got?.recording
+    expect(rec?.index).toBe(2)
+    expect(rec?.meta.transcriber).toBeUndefined()
+    expect(rec?.meta.frames.map((f) => f.file)).toEqual([
+      'frames/01-0000.jpg',
+      'frames/02-0005.jpg',
+    ])
+    expect(rec?.meta.frames[1]?.pointer?.selector).toBe('button.save')
+    expect(rec?.meta.transcript[0]?.d).toBe(2500)
+    expect(rec?.meta.events).toHaveLength(1)
+    expect(rec?.meta.events[0]?.ts).toBe(Date.parse('2026-07-29T14:12:05.000Z') + 6000)
+    const report = rec && got ? buildReport(got.session, [rec]) : ''
+    expect(report).toContain('`rec-02/frames/02-0005.jpg`')
+    expect(report).toContain('live dictation (Web Speech)')
+  })
+
+  test('refuses what is not a recording', () => {
+    expect(readRecordingJson('not json')).toBeNull()
+    expect(readRecordingJson('{"session":{}}')).toBeNull()
+    expect(readRecordingJson(null)).toBeNull()
+  })
+})
+
+describe('host additions', () => {
+  test('a cut leaves out what it covers and marks the gap', () => {
+    const report = buildReport(session, [take()], {
+      cuts: [{ fromMs: 15000, toMs: 19000, reason: 'retook the coupon part' }],
+    })
+    expect(report).toContain('✂ **0:15–0:19** removed after recording: retook the coupon part')
+    expect(report).toContain('Stretches marked ✂ were removed after recording')
+    expect(report).not.toContain('frames/05-0160.jpg` ')
+    expect(report).not.toContain('coupon field')
+    expect(report).not.toContain('TypeError')
+    expect(report).not.toContain('error captured')
+    expect(
+      rankFrames([take()], { cuts: [{ fromMs: 15000, toMs: 19000 }] }).map((r) => r.frame.index)
+    ).not.toContain(5)
+  })
+
+  test('captions read as a model looking at the frame', () => {
+    const report = buildReport(session, [take()], {
+      captions: {
+        'rec-01/frames/04-0090.jpg': 'The order total reads $1,240.00 under three line items.',
+      },
+    })
+    expect(report).toContain('· shows: The order total reads $1,240.00 under three line items.')
+    expect(report).toContain("`shows:` is a model's one-line reading of a frame")
+    expect(buildReport(session, [take()])).not.toContain('shows:')
+  })
+
+  test('evidenceAt: the line said there, the frame that shows it, the error beside it', () => {
+    const total = evidenceAt([take()], 8000)
+    expect(total.line?.text).toContain('1,240')
+    expect(total.frame?.path).toBe('rec-01/frames/04-0090.jpg')
+    expect(total.error).toBeUndefined()
+
+    const coupon = evidenceAt([take()], 16000)
+    expect(coupon.line?.text).toContain('coupon')
+    expect(coupon.frame?.path).toBe('rec-01/frames/05-0160.jpg')
+    expect(coupon.error?.message).toContain('TypeError')
+
+    // Nothing said within 5 s: the frame on screen then.
+    const after = evidenceAt([take()], 40000)
+    expect(after.line).toBeUndefined()
+    expect(after.frame?.path).toBe('rec-01/frames/10-0295.jpg')
   })
 })

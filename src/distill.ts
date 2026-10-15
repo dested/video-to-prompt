@@ -43,7 +43,10 @@ const MIN_SPAN_MS = 1000
 
 /** "03 · 0:05", plus how long it lasted when the state didn't stick. Times are the report's (walkthrough) clock. */
 function tileLabel(frame: RecordingFrame, axisStart: number): string {
-  const held = frame.transient && frame.held !== undefined ? ` · gone after ${(frame.held / 1000).toFixed(1)} s` : ''
+  const held =
+    frame.transient && frame.held !== undefined
+      ? ` · gone after ${(frame.held / 1000).toFixed(1)} s`
+      : ''
   return `${pad2(frame.index)} · ${mmss(axisStart + frame.t)}${held}`
 }
 
@@ -264,7 +267,9 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
       if (gridFrames.length) {
         report('sheets', i, 0, label)
         // Nine at a time in frame order — exactly how report.ts maps a frame to its sheet.
-        for (const [n, sheet] of (await makeGrids(gridFrames, { width: opts.sheetWidth })).entries()) {
+        for (const [n, sheet] of (
+          await makeGrids(gridFrames, { width: opts.sheetWidth })
+        ).entries()) {
           const path = sheetFile(n + 1, `${dir}/`)
           files.push({ path, blob: sheet, contentType: contentTypeFor(path) })
         }

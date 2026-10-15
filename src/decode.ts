@@ -58,7 +58,8 @@ export async function openFrameSource(file: Blob, opts: OpenOptions = {}): Promi
   if (want !== 'seek') {
     const fast = await openWebCodecs(file).catch(() => null)
     throwIfAborted(opts.signal)
-    if (fast) return want === 'webcodecs' ? fast : withFallback(fast, () => openSeek(file, opts.signal))
+    if (fast)
+      return want === 'webcodecs' ? fast : withFallback(fast, () => openSeek(file, opts.signal))
     if (want === 'webcodecs') throw new Error(FRAMES_UNREADABLE)
   }
   return openSeek(file, opts.signal)
@@ -100,7 +101,11 @@ async function openWebCodecs(file: Blob): Promise<FrameSource | null> {
           for await (const sample of samples) {
             throwIfAborted(signal)
             const at = (sample.timestamp - origin) * 1000
-            for (let next = times[i]; next !== undefined && next < at - PTS_SLOP_MS; next = times[++i]) {
+            for (
+              let next = times[i];
+              next !== undefined && next < at - PTS_SLOP_MS;
+              next = times[++i]
+            ) {
               if (shown) yield frame(shown, next)
             }
             shown?.close()
@@ -108,7 +113,8 @@ async function openWebCodecs(file: Blob): Promise<FrameSource | null> {
             if (i >= times.length) break
           }
           // The last frame stays on screen to the end of the clip.
-          for (let next = times[i]; shown && next !== undefined; next = times[++i]) yield frame(shown, next)
+          for (let next = times[i]; shown && next !== undefined; next = times[++i])
+            yield frame(shown, next)
         } finally {
           shown?.close()
           await samples.return(undefined)

@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { diffSignatures, LUMA_TOL, sigRows, signatureFromRgba, unionBox } from '../../src/signature.ts'
+import {
+  diffSignatures,
+  LUMA_TOL,
+  sigRows,
+  signatureFromRgba,
+  unionBox,
+} from '../../src/signature.ts'
 import { flat, paint } from './helpers.ts'
 
 describe('signature', () => {
@@ -10,7 +16,9 @@ describe('signature', () => {
   })
 
   test('luma from RGBA uses BT.601 weights', () => {
-    const rgba = new Uint8ClampedArray([255, 255, 255, 255, 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255])
+    const rgba = new Uint8ClampedArray([
+      255, 255, 255, 255, 255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255,
+    ])
     const sig = signatureFromRgba(rgba, 4, 1)
     expect([...sig.luma]).toEqual([255, 76, 149, 28])
   })
@@ -59,6 +67,11 @@ describe('signature', () => {
 
   test('unionBox', () => {
     expect(unionBox([])).toBeNull()
-    expect(unionBox([{ x: 1, y: 1, w: 2, h: 2 }, { x: 5, y: 0, w: 1, h: 1 }])).toEqual({ x: 1, y: 0, w: 5, h: 3 })
+    expect(
+      unionBox([
+        { x: 1, y: 1, w: 2, h: 2 },
+        { x: 5, y: 0, w: 1, h: 1 },
+      ])
+    ).toEqual({ x: 1, y: 0, w: 5, h: 3 })
   })
 })

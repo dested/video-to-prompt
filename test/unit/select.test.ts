@@ -63,7 +63,12 @@ describe('Selector', () => {
     const b = paint(page, 10, 10, 60, 30, 90)
     const c = paint(page, 80, 40, 60, 30, 160)
     const { picks } = replay([...hold(page, 8), ...hold(b, 8), ...hold(c, 8), ...hold(page, 12)])
-    expect(picks.map((p) => [p.t, p.reason])).toEqual([[0, 'start'], [2000, 'change'], [4000, 'change'], [8750, 'end']])
+    expect(picks.map((p) => [p.t, p.reason])).toEqual([
+      [0, 'start'],
+      [2000, 'change'],
+      [4000, 'change'],
+      [8750, 'end'],
+    ])
   })
 
   test('the opening settles before the first frame is taken', () => {
@@ -77,7 +82,10 @@ describe('Selector', () => {
     const figure = paint(page, 80, 60, 3, 2)
     const frames = [...hold(page, 8), ...hold(figure, 16)]
     // Unnarrated, only the ending catches it, at the very end.
-    expect(replay(frames).picks.map((p) => [p.t, p.reason])).toEqual([[0, 'start'], [5750, 'end']])
+    expect(replay(frames).picks.map((p) => [p.t, p.reason])).toEqual([
+      [0, 'start'],
+      [5750, 'end'],
+    ])
     const spoken = replay(frames, { narration: [{ t: 2500, d: 2000, text: 'look at the total' }] })
     // Narrated, it is shown while it's talked about, and that frame is the ending too.
     expect(spoken.picks.map((p) => p.reason)).toEqual(['start', 'narration'])
@@ -87,7 +95,9 @@ describe('Selector', () => {
   })
 
   test('a narration line over an unchanged screen adds nothing', () => {
-    const { picks } = replay(hold(page, 24), { narration: [{ t: 1000, d: 3000, text: 'this is the dashboard' }] })
+    const { picks } = replay(hold(page, 24), {
+      narration: [{ t: 1000, d: 3000, text: 'this is the dashboard' }],
+    })
     expect(picks).toHaveLength(1)
   })
 
