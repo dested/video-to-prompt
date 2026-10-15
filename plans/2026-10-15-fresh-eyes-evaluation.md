@@ -150,6 +150,11 @@ spread; clamp line ends; honest wording ("listed", not "inlined"); a narration-s
   signature cell by 4 levels, under codec noise, so it never registers or gets a box. The
   narration rule still keeps a frame of it. A finer second signature for change boxes only would
   catch it, but a digit and the mouse pointer are the same size; that needs its own eval.
+- **Follow-up: the phone status bar counts as a change.** On a real 12:37 iPhone recording (Handback
+  Gym), 13 of 230 kept frames changed only in the top 6% (the clock's minute ticking over), 8 of
+  them kept for that alone, and a Start here pick read "changed top-left (small)". Ignoring the
+  status-bar band on portrait phone clips (or never letting a status-bar-only diff count as a
+  change) would fix it; measure on the Gym clip.
 - Handback MCP brief (H3) shipped on library 1.1.2 (handback bd6960b, deployed and checked on a
   real walkthrough). 1.1.3 adds what the web-capture migration needs: `keyframes: false` for a
   human handback, and a transcriber that returns `{ segments, label }` so the report names the
