@@ -1,89 +1,71 @@
-import { pad2, mmssFile } from './format'
-import { hiddenVideo, readyVideo, releaseVideo, seekTo, toJpeg, UNREADABLE } from './media'
-import type { RecordingFrame } from './types'
+import { throwIfAborted } from './cancel.js'
+import { openFrameSource, type FrameEngine, type SourceFrame } from './decode.js'
+import { mmssFile, pad2 } from './format.js'
+import { toJpeg } from './media.js'
+import { Selector, type NarrationWindow, type Pick, type SelectAction, type Slot } from './select.js'
+import { SIG_COLS, sigRows, signatureFromRgba, type Signature } from './signature.js'
+import type { RecordingFrame } from './types.js'
 
 /**
- * Keyframe extraction by seek-stepping an already-recorded file: sample a
- * candidate every step, keep the ones that changed, thin to a length-scaled
- * budget. The keep/drop rule matches a live recorder sampling a screen share at
- * 500 ms — a walkthrough distilled after the fact has to look like one
- * distilled live. The **cadence** does not match: see STEP_FLOOR_MS.
+ * Keyframe extraction from an already-recorded file. A candidate every
+ * `stepMs`, a signature of each, and `Selector` deciding which survive (see
+ * select.ts for the rule). Only the keepers are ever encoded, and at most two
+ * full-size candidates are held at once, so memory is the budget's worth of
+ * JPEGs whatever the clip's length.
  *
- * No forced keyframes here: an already-recorded clip has no clicks, no
- * navigations and no page events to force one, so the only reasons are
- * 'start', 'change' and 'beat'.
+ * Cadence depends on the engine. WebCodecs decodes every packet once anyway,
+ * so a candidate costs a canvas draw: 250 ms, dense enough that a toast shown
+ * for half a second is seen twice. The seek fallback pays a decode from the
+ * previous keyframe per candidate, which on iOS is the whole cost of the run:
+ * it keeps the first version's one second.
  */
 
-/**
- * Candidate cadence. A live recorder's 500 ms is free — it reads a frame that a
- * screen share was going to paint anyway. A seek-step pays a full decode per
- * candidate, and on iOS that is the whole cost of the run: at 500 ms a
- * thirty-second clip asks the phone for sixty decodes to keep frames the budget
- * below caps at forty a minute. One second still oversamples the budget by 50%
- * and halves the work.
- */
-const STEP_FLOOR_MS = 1000
-const SIG_SIZE = 64 // 64×64 RGB cells — fine enough that a sprite-sized change still flips whole cells
-const PIX_TOL = 25 // a cell counts as changed if any channel moves more than this
-const DEDUP_THRESHOLD = 8 // cells that must change for a frame to be new (~0.2% of 4096)
-const DEDUP_WINDOW = 4 // vs the last N KEPT frames — A-B-A cutaways don't come back
-const BEAT_MS = 15000 // a minute of narration over a slowly-shifting screen must not produce zero frames
+const STEP_MS: Record<FrameEngine, number> = { webcodecs: 250, seek: 1000 }
+/** Past this many candidates the step stretches. 30 min at 250 ms; 30 min at 1 s. */
+const MAX_CANDIDATES: Record<FrameEngine, number> = { webcodecs: 7200, seek: 1800 }
 const FRAMES_PER_MIN = 40
 const MIN_FRAME_BUDGET = 150
 const MAX_FRAME_BUDGET = 600
 const MAX_FRAME_W = 1920
 const JPEG_QUALITY = 0.8 // 0.9 until 2026-08-25 — mirrors handback (frames dominate upload size)
-/**
- * Past half an hour even a one-second step is thousands of decodes. Cap the
- * candidate count and let the step stretch past the floor — the budget below
- * thins the result to the same shape either way.
- */
-const MAX_CANDIDATES = 1800
-/**
- * A single seek that doesn't land is a decoder hiccup — skip the candidate and
- * keep the frames we can get. Three in a row is a decoder that will not step
- * this file at all, and at SEEK_TIMEOUT_MS apiece the remaining candidates are
- * hours of waiting for nothing. Give up and let the caller ship the take
- * frameless. Three *from the start* is the iOS case this exists for.
- */
-const MAX_SEEK_FAILURES = 3
+/** The last candidate sits this far before the end: a seek to the exact duration can land on nothing. */
+const TAIL_MS = 100
 
-/** How many keyframes a take of this length may keep after dedup. Uniform thinning
- *  past this point, so survivors stay spread across the whole recording. */
+/** How many keyframes a take of this length may keep. A cap, not a target. */
 export function frameBudget(durationMs: number): number {
   const byLength = Math.round((durationMs / 60000) * FRAMES_PER_MIN)
   return Math.min(MAX_FRAME_BUDGET, Math.max(MIN_FRAME_BUDGET, byLength))
-}
-
-/** Count of cells whose max channel delta exceeds PIX_TOL. */
-function cellDiff(a: Uint8ClampedArray, b: Uint8ClampedArray): number {
-  const cells = SIG_SIZE * SIG_SIZE
-  let changed = 0
-  for (let i = 0; i < cells; i++) {
-    const p = i * 4
-    const d = Math.max(
-      Math.abs(a[p] - b[p]),
-      Math.abs(a[p + 1] - b[p + 1]),
-      Math.abs(a[p + 2] - b[p + 2])
-    )
-    if (d > PIX_TOL) changed++
-  }
-  return changed
 }
 
 export interface ExtractOptions {
   /** 0..1 through this clip. */
   onProgress?: (fraction: number) => void
   signal?: AbortSignal
+  /** The take's transcript: every line whose window passes with no keyframe gets one. */
+  narration?: NarrationWindow[]
+  /** 'auto' (default): WebCodecs where the browser can decode the file, seeking otherwise. */
+  engine?: FrameEngine | 'auto'
 }
 
 export interface ExtractedFrames {
-  /** Post-thin, renumbered 1..N. */
+  /** Kept frames in time order, numbered 1..N. */
   frames: RecordingFrame[]
-  /** JPEG per surviving frame, keyed by its final index. Held in memory — a clip is one-shot. */
+  /** JPEG per kept frame, keyed by its index. Held in memory — a clip is one-shot. */
   blobs: Map<number, Blob>
   /** Candidates examined. The MANIFEST reports it. */
   sampled: number
+  /** Which engine produced the candidates, and how far apart they were. */
+  engine: FrameEngine
+  stepMs: number
+}
+
+export function candidateTimes(durationMs: number, engine: FrameEngine): { times: number[]; stepMs: number } {
+  const stepMs = Math.max(STEP_MS[engine], Math.ceil(durationMs / MAX_CANDIDATES[engine]))
+  const times: number[] = []
+  for (let t = 0; t < durationMs; t += stepMs) times.push(t)
+  const tail = Math.max(0, durationMs - TAIL_MS)
+  if (times.length && tail - (times[times.length - 1] ?? 0) > stepMs / 2) times.push(tail)
+  return { times, stepMs }
 }
 
 export async function extractFrames(
@@ -91,119 +73,118 @@ export async function extractFrames(
   durationMs: number,
   opts: ExtractOptions = {}
 ): Promise<ExtractedFrames> {
-  const frames: RecordingFrame[] = []
   const blobs = new Map<number, Blob>()
+  if (durationMs <= 0) return { frames: [], blobs, sampled: 0, engine: 'seek', stepMs: 0 }
+
+  const source = await openFrameSource(file, { engine: opts.engine, signal: opts.signal })
+  const engine = source.engine
+  const { times, stepMs } = candidateTimes(durationMs, engine)
+  const selector = new Selector({ durationMs, budget: frameBudget(durationMs), narration: opts.narration })
+
+  const sigCtx = canvas2d(SIG_COLS, 1, true)
+  const slots: Record<Slot, CanvasRenderingContext2D> = {
+    pending: canvas2d(1, 1, false),
+    anchor: canvas2d(1, 1, false),
+  }
+  const scratch = canvas2d(1, 1, false)
+  /** By pick id until the end, when picks are renumbered in time order. */
+  const byId = new Map<number, Blob>()
   let sampled = 0
-  if (durationMs <= 0) return { frames, blobs, sampled }
 
-  const url = URL.createObjectURL(file)
-  const video = hiddenVideo(url)
-  try {
-    await readyVideo(video, UNREADABLE)
-
-    const sigCanvas = document.createElement('canvas')
-    sigCanvas.width = SIG_SIZE
-    sigCanvas.height = SIG_SIZE
-    const sigCtx = sigCanvas.getContext('2d', { willReadFrequently: true })
-    const frameCtx = document.createElement('canvas').getContext('2d')
-    if (!sigCtx || !frameCtx) throw new Error("couldn't read frames from that video")
-    frameCtx.imageSmoothingQuality = 'high'
-
-    /** Signatures of the KEPT frames only — that ring *is* the dedup window. */
-    const sigs: Uint8ClampedArray[] = []
-    let lastKeptT = 0
-    const stepMs = Math.max(STEP_FLOOR_MS, Math.ceil(durationMs / MAX_CANDIDATES))
-    let missedSeeks = 0
-
-    for (let t = 0; t < durationMs; t += stepMs) {
-      if (opts.signal?.aborted) throw new Error('cancelled')
-      try {
-        await seekTo(video, t / 1000, "couldn't read frames from that video")
-        missedSeeks = 0
-      } catch (error) {
-        if (opts.signal?.aborted) throw new Error('cancelled')
-        if (++missedSeeks >= MAX_SEEK_FAILURES) throw error
-        continue
-      }
-      opts.onProgress?.(t / durationMs)
-      if (!video.videoWidth || !video.videoHeight) continue
-
-      sampled++
-      sigCtx.drawImage(video, 0, 0, SIG_SIZE, SIG_SIZE)
-      const sig = sigCtx.getImageData(0, 0, SIG_SIZE, SIG_SIZE).data
-
-      const minDist = sigs.length ? Math.min(...sigs.map((k) => cellDiff(sig, k))) : undefined
-      let reason: RecordingFrame['reason']
-      if (minDist === undefined) {
-        reason = 'start'
-      } else if (minDist <= DEDUP_THRESHOLD) {
-        // Below the bar, but the screen *is* moving and nothing has been kept in
-        // a while — a drifting low-contrast UI would otherwise go dark for minutes.
-        if (!(minDist > 0 && t - lastKeptT > BEAT_MS)) continue
-        reason = 'beat'
-      } else {
-        reason = 'change'
-      }
-      const dist = minDist // changed-cell count vs the closest kept frame
-
-      const width = Math.min(video.videoWidth, MAX_FRAME_W)
-      const height = Math.round((video.videoHeight * width) / video.videoWidth)
-      const canvas = frameCtx.canvas
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width
-        canvas.height = height
-        frameCtx.imageSmoothingQuality = 'high'
-      }
-      frameCtx.drawImage(video, 0, 0, width, height)
-
-      const index = frames.length + 1
-      blobs.set(index, await toJpeg(canvas, JPEG_QUALITY))
-      frames.push({
-        index,
-        t,
-        file: `frames/${pad2(index)}-${mmssFile(t)}.jpg`,
-        reason,
-        ...(dist === undefined ? {} : { dist }),
-      })
-      lastKeptT = t
-      sigs.push(sig)
-      if (sigs.length > DEDUP_WINDOW) sigs.shift()
+  const fit = (ctx: CanvasRenderingContext2D, frame: SourceFrame) => {
+    const width = Math.min(frame.width, MAX_FRAME_W)
+    const height = Math.round((frame.height * width) / frame.width)
+    if (ctx.canvas.width !== width || ctx.canvas.height !== height) {
+      ctx.canvas.width = width
+      ctx.canvas.height = height
     }
-    opts.onProgress?.(1)
-  } finally {
-    releaseVideo(video)
-    URL.revokeObjectURL(url)
+    ctx.imageSmoothingQuality = 'high'
+    frame.draw(ctx, width, height)
+  }
+  const encode = async (ctx: CanvasRenderingContext2D, id: number) => {
+    byId.set(id, await toJpeg(ctx.canvas, JPEG_QUALITY))
+  }
+  const apply = async (actions: SelectAction[], frame: SourceFrame | null) => {
+    for (const action of actions) {
+      if (action.kind === 'hold') {
+        if (frame) fit(slots[action.slot], frame)
+      } else if (action.kind === 'keep') {
+        if (action.from === 'current') {
+          if (!frame) continue
+          fit(scratch, frame)
+          await encode(scratch, action.pick.id)
+        } else {
+          await encode(slots[action.from], action.pick.id)
+        }
+      } else if (action.kind === 'drop') {
+        byId.delete(action.id)
+      } else {
+        for await (const again of source.frames([action.t], opts.signal)) {
+          fit(scratch, again)
+          await encode(scratch, action.pick.id)
+        }
+      }
+    }
   }
 
-  return thin(frames, blobs, sampled, durationMs)
+  try {
+    let sig: Signature | null = null
+    for await (const frame of source.frames(times, opts.signal)) {
+      throwIfAborted(opts.signal)
+      sampled++
+      sig = readSignature(sigCtx, frame)
+      await apply(selector.push(frame.t, sig), frame)
+      opts.onProgress?.(frame.t / durationMs)
+    }
+    await apply(selector.finish(), null)
+    opts.onProgress?.(1)
+  } finally {
+    source.close()
+  }
+
+  const frames: RecordingFrame[] = []
+  for (const pick of selector.picks()) {
+    const blob = byId.get(pick.id)
+    if (!blob) continue
+    const index = frames.length + 1
+    blobs.set(index, blob)
+    frames.push(toRecordingFrame(pick, index))
+  }
+  return { frames, blobs, sampled, engine, stepMs }
 }
 
-/**
- * A uniform thin: survivors stay spread across the whole clip, so nothing is
- * protected from it and nothing gets a run of neighbours it doesn't earn.
- * Survivors renumber ascending; `t` is untouched, so transcript citations stay
- * valid.
- */
-function thin(
-  frames: RecordingFrame[],
-  blobs: Map<number, Blob>,
-  sampled: number,
-  durationMs: number
-): ExtractedFrames {
-  const allowed = frameBudget(durationMs)
-  if (frames.length <= allowed) return { frames, blobs, sampled }
+function toRecordingFrame(pick: Pick, index: number): RecordingFrame {
+  return {
+    index,
+    t: pick.t,
+    file: `frames/${pad2(index)}-${mmssFile(pick.t)}.jpg`,
+    reason: pick.reason,
+    ...(pick.dist === undefined ? {} : { dist: pick.dist }),
+    ...(pick.change ? { change: pick.change } : {}),
+    ...(pick.held === undefined ? {} : { held: pick.held }),
+    ...(pick.transient ? { transient: true } : {}),
+  }
+}
 
-  const keepIdx = new Set<number>()
-  const step = frames.length / allowed
-  for (let i = 0; i < allowed; i++) keepIdx.add(Math.floor(i * step))
-  const survivors = frames.filter((_, i) => keepIdx.has(i))
+function canvas2d(width: number, height: number, readback: boolean): CanvasRenderingContext2D {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d', readback ? { willReadFrequently: true } : undefined)
+  if (!ctx) throw new Error("couldn't read frames from that video")
+  return ctx
+}
 
-  const kept = new Map<number, Blob>()
-  survivors.forEach((frame, n) => {
-    const blob = blobs.get(frame.index)
-    frame.index = n + 1
-    frame.file = `frames/${pad2(frame.index)}-${mmssFile(frame.t)}.jpg`
-    if (blob) kept.set(frame.index, blob)
-  })
-  return { frames: survivors, blobs: kept, sampled }
+/** Shrink a frame onto the signature grid (aspect kept) and read it back as luma. */
+export function readSignature(ctx: CanvasRenderingContext2D, frame: SourceFrame): Signature {
+  const cols = SIG_COLS
+  const rows = sigRows(frame.width, frame.height)
+  if (ctx.canvas.width !== cols || ctx.canvas.height !== rows) {
+    ctx.canvas.width = cols
+    ctx.canvas.height = rows
+  }
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  frame.draw(ctx, cols, rows)
+  return signatureFromRgba(ctx.getImageData(0, 0, cols, rows).data, cols, rows)
 }

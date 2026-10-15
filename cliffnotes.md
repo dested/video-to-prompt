@@ -1,103 +1,125 @@
 # video-to-prompt — CliffNotes
 
 > Living map of the project. Read this before any coding session.
-> Last updated: 2026-08-06. Why → `decisions.md` · log → `updates.md`.
+> Last updated: 2026-10-15. Why → `decisions.md` · log → `updates.md`.
 
 ## What this is
 
 A browser-only TypeScript library that distills already-recorded, narrated screen recordings
-into an agent-ready prompt package: deduped keyframes, 3×3 contact sheets, a timed transcript
-(via a pluggable speech engine), and a `report.md`/`MANIFEST.txt` pair written for LLM
-consumption. Extracted 2026-08-06 from Handback's `src/lib/capture/` (which stays in place for
-now and must be kept in sync — see Gotchas).
+into an agent-ready prompt package: keyframes chosen for evidence, contact sheets with what
+changed outlined, a timed transcript (via a pluggable speech engine), and a
+`report.md`/`MANIFEST.txt` pair written for a model (Opus 5.5) to read. Format
+`video-to-prompt/2`. Extracted 2026-08-06 from Handback's `src/lib/capture/`; v2 (2026-10-15)
+is meant to become Handback's only pipeline (see Status).
 
-Public repo: **github.com/dested/video-to-prompt**. npm publish planned, not done — the name may
-end up scoped (`@dested/video-to-prompt`) if the bare one is taken; decide at publish time.
+Public repo **github.com/dested/video-to-prompt**; npm name **`@dested/video-to-prompt`**
+(1.0.0 prepared, not yet published: needs Sal's `npm login`).
 
 ## Quick Reference
 
-- **Type-check:** `bun run typecheck` (tsc --noEmit) — must pass before any task is done
-- **Build:** `bun run build` → `dist/` (ESM + d.ts via tsc)
-- **No dev server, no tests yet** — it's a library; consumers exercise it (Handback `/phone` and
-  `/upload` run the same code today)
-- **Format:** `bun run prettier` (no semicolons, single quotes, width 100 — matches Handback)
+- **Type-check:** `bun run typecheck` (src, then `test/tsconfig.json` over tests + harness). Must pass
+- **Unit tests:** `bun run test` (`bun test test/unit`): signature, Selector scenarios, report goldens
+  (snapshots in `test/unit/__snapshots__/`; refresh with `--update-snapshots`, then READ the diff)
+- **Build:** `bun run build` → `dist/` (ESM + d.ts via tsc, `.js` imports, loads under bare Node)
+- **Fixture eval:** `bun test/browser/fixtures.ts` (needs ffmpeg) once, then
+  `bun test/browser/eval.ts [--ref HEAD --label v1] [--ref '' --label v2]`: headless Chromium,
+  states caught vs ground truth, noise frames, wall time. Outputs in `test/.runs/<label>/`
+- **Rule tuning without a browser:** `bun test/browser/sigdump.ts …` dumps signature streams to
+  `test/.runs/sig/`; `bun test/browser/tune.ts <file.sig> --truth … --narration …` replays Selector
+- **Format:** `bun run prettier` (no semicolons, single quotes, width 100, matches Handback)
 
 ## Stack
 
-TypeScript (strict) · zero runtime dependencies · browser APIs only (`<video>`, canvas,
-`OfflineAudioContext`, `createImageBitmap`). No DOM at module scope, so it imports cleanly under
-SSR. devDeps: typescript, prettier, rimraf.
+TypeScript (strict + `noUncheckedIndexedAccess`) · one runtime dep, **mediabunny** (`^1.61.0`,
+always dynamic-imported) · browser APIs (WebCodecs, `<video>`, canvas, `OfflineAudioContext`,
+`createImageBitmap`). No DOM at module scope, so it imports cleanly under SSR. devDeps:
+typescript, @types/bun, playwright-core (eval harness), prettier, rimraf.
 
 ## Directory structure
 
 ```
 src/
-  index.ts       Public surface — the only file consumers import from
-  distill.ts     THE orchestrator: clips in → file set out; Transcriber/Polisher plug points
-  types.ts       Vocabulary: stages/progress/ClipInput/OutputFile + the FROZEN recording shapes
-                 (Recording, RecordingMeta, RecordingFrame, TranscriptSegment, PageEvent, Session)
-  probe.ts       What a picked file is: duration (webm Infinity hack), has-video, poster still
-  media.ts       Offscreen <video> plumbing: hiddenVideo/readyVideo/seekTo/toJpeg, iOS wake-ups
-  frames.ts      Keyframe extraction: 1s seek-step candidates, 64×64 signature dedup, beat
-                 frames, uniform thin to frameBudget (40/min, clamp [150,600])
-  grids.ts       3×3 contact sheets, nine per image in frame order (must match report.ts's map)
-  audio.ts       decodeMono (16 kHz mono Float32, silence detection) + encodeWav (16-bit PCM)
-  report.ts      The format's writers: report.md, MANIFEST.txt, transcript.txt, recording.json;
-                 ReportOptions carries all product wording (url/source/pathsHint/polishedBy)
+  index.ts       Public surface, the only file consumers import from
+  distill.ts     THE orchestrator: clips in → file set out; Transcriber (id + label)/Polisher plug
+                 points; options sheetWidth, frameEngine, includeVideo
+  types.ts       FORMAT = 'video-to-prompt/2' + the recording shapes (Recording, RecordingMeta,
+                 RecordingFrame with change/held/transient, FrameBox, TranscriptSegment, Session…)
+  probe.ts       Container-first probe via mediabunny (duration, size, poster via WebCodecs);
+                 falls back to the <video> path (webm Infinity hack)
+  decode.ts      openFrameSource: WebCodecs sequential sink (latest frame ≤ each time) or seek-
+                 stepping; withFallback switches mid-stream if WebCodecs throws
+  signature.ts   160-column luma grid (rows by aspect), diffSignatures → changed/regions/box
+  select.ts      Selector: PURE keyframe rule (major change, settle, transient, dedup, narration
+                 anchors, beat, final frame, budget, busy-cell heat mask). No DOM
+  frames.ts      extractFrames: candidates (250 ms webcodecs / 1 s seek) → signature → Selector;
+                 only keepers become JPEGs. candidateTimes, frameBudget (40/min, [150,600])
+  grids.ts       Contact sheets: 2000 px default, 3 cols (5 portrait), labels, magenta change boxes
+  audio.ts       decodeMono via mediabunny AudioSampleSink, 30 s resample chunks, AAC priming trim,
+                 decodeAudioData fallback; encodeWav (16-bit PCM)
+  report.ts      The format's writers: report.md (Start here / sheets / Timeline), MANIFEST.txt,
+                 transcript.txt, recording.json; rankFrames, whereOnScreen; ReportOptions voice
+  media.ts       Offscreen <video> plumbing: readyVideo/seekTo/toJpeg, iOS wake-ups, signals
+  cancel.ts      CancelledError, throwIfAborted, isCancelled, abortable
   timeline.ts    The unified axis: partSpans laid end to end, linePos/framePos (tl override)
   container.ts   videoFile name + contentType from the arriving MIME; contentTypeFor(path)
-  format.ts      pad2/recDirName/mmss/mmssFile/dateTime/hhmm — filename-grade, frozen
-  slug.ts        slugify — deterministic identity from a title
+  format.ts      pad2/recDirName/mmss/mmssFile/dateTime/hhmm (filename-grade, frozen)
+  slug.ts        slugify
+test/
+  tsconfig.json  Typechecks tests + harness + src (allowImportingTsExtensions, bun types)
+  unit/          bun tests: helpers.ts (synthetic signatures, replay), signature/select/report tests
+  browser/       Playwright harness: fixtures.ts (builds the Ledgerly fixture + truth/narration),
+                 harness-core.ts/run.ts (distill in headless Chromium), eval.ts, sigdump.ts, tune.ts
+  .fixtures/ .runs/   generated, gitignored
+plans/           dated working docs (fresh-eyes evaluation)
 dist/            build output (gitignored)
 ```
 
 ## Key types & flow
 
-`distill(clips: ClipInput[], opts)` per clip: probe → decodeMono → `opts.transcriber.run()` →
-`opts.polish()` → extractFrames → makeGrids → per-take files (transcript.txt, recording.json,
-video) — then report.md + MANIFEST.txt over the whole set. Returns `DistillOutput`
-`{ session, takes, files, report, manifest, counts… }`. No upload, no storage, no network of its
-own — transcription/polish only happen through the hooks the caller supplies.
+`distill(clips, opts)` per clip: probe (`poster: false`) → decodeMono → `transcriber.run()` →
+`polish()` → extractFrames (narration windows passed in) → makeGrids → per-take files; then
+report.md + MANIFEST.txt over the whole set. Returns `DistillOutput`. No network of its own.
+
+Inside extractFrames: `openFrameSource` yields frames at `candidateTimes`; each is drawn small,
+read to a `Signature`, pushed into `Selector`, which answers `hold`/`keep`/`drop`/`refetch`
+actions over two slots (`pending`, `anchor`). The extractor holds at most a couple of full-size
+frames and encodes only keepers.
 
 ## Gotchas & hard rules
 
-- **The recording shapes and the emitted file set are a FORMAT, not internals.** Readers exist
-  outside this repo (Handback's viewer, its `cli/push.ts` re-push, its MCP brief formatter, the
-  recorder extension). Changing `recording.json` fields, path layouts (`rec-NN/frames/NN-mmss.jpg`,
-  `grids/grid_NN.jpg`), or report structure is a format change — flag it, version it, don't drift it.
-- **Handback still carries its own copy** (`handback/src/lib/capture/`, and the extension's live
-  pipeline it was ported from). Until Handback consumes this package, any pipeline change here
-  must be mirrored there and vice versa. That's the whole reason this repo exists — to end that
-  duplication — so upstreaming Handback onto the package is the standing next step.
-- **Audio before frames, always.** Decoding audio holds hundreds of MB; so do 600 JPEG blobs.
-  `distill` takes the audio spike and releases it before extracting a single frame — keep that
-  order in any new orchestration.
-- **Keyframes are best-effort, and they're the only stage that is.** A decoder that won't
-  seek-step (iOS) degrades the take to zero frames; video/transcript/report still ship. The
-  rollback is the whole stage at once — half a frame set with no sheets leaves report.md citing
-  files nobody wrote.
-- **Grid batching must match report.ts's `sheetOf`** — nine per sheet, meta order. Change one,
-  change both.
-- **The polish hook edits words, never timings.** Same line count back or it's discarded;
-  `t`/`d`/`tl` never cross the boundary.
-- **Frame `t` survives thinning; `index`/`file` renumber.** Transcript citations point at times,
-  so they stay valid — don't "fix" the renumbering.
-- **1 s candidate floor is deliberate** (vs a live recorder's 500 ms): a seek-step pays a real
-  decode per candidate and the MANIFEST says "1s candidates". Change the cadence, change the
-  MANIFEST line.
-- **No `noUncheckedIndexedAccess`** — deliberate (decisions.md): the hot loops index typed arrays
-  and the code is a faithful port; strict mode only, matching the source repo.
-- **Emitted ESM has extensionless relative imports** (moduleResolution: Bundler) — fine for
-  bundler consumers, not for bare-Node ESM. Revisit before npm publish if Node support matters.
-- **tRPC/JSON rule doesn't apply here, but SSR does:** nothing touches the DOM at module scope.
-  Keep it that way or every SSR consumer breaks at import.
+- **The recording shapes and the emitted file set are a FORMAT.** Readers exist outside this repo
+  (Handback viewer, `cli/push.ts`, MCP brief formatter, extension, bx). Format 2 only *adds*
+  fields; keep it that way or bump the format. Paths `rec-NN/frames/NN-mmss.jpg`,
+  `grids/grid_NN.jpg` are contract.
+- **Handback still carries its own drifted copy** until the migration lands. Don't fix bugs there
+  by hand; move it onto this package.
+- **Audio before frames, always.** `distill` releases the audio spike before extracting a frame.
+- **Keyframes are best-effort.** Both engines failing degrades the take to zero frames;
+  video/transcript/report still ship. The rollback is the whole stage.
+- **Grid batching must match report.ts's `sheetOf`**: nine per sheet, meta order.
+- **The polish hook edits words, never timings.** Same line count back or it's discarded.
+- **Selector changes go through the evals.** Run `bun run test` and the fixture eval (9/9 states,
+  10 frames, 0 noise is the bar); replay the real dump with `tune.ts` (11 frames). Synthetic
+  fixtures must not be periodic (a stripe pattern repeats and reads as A-B-A).
+- **mediabunny's `samplesAtTimestamps` returns null on cue-less MediaRecorder webm.** decode.ts
+  uses a sequential `samples(from)` sink on purpose.
+- **Never import mediabunny statically.** It is dynamic-imported in decode/probe/audio so the
+  package imports under SSR and bare Node.
+- **Relative imports carry `.js`**: needed for bare-Node ESM consumers.
+- **Report snapshot tests pin `process.env.TZ = 'UTC'`**: dateTime/hhmm are local-time.
+- **Nothing touches the DOM at module scope.**
 
 ## Status
 
-- **Done (2026-08-06)** — extracted from Handback: full pipeline ported (probe, media, frames,
-  grids, audio, timeline, report, container, format, slug), upload/auth/pending stripped,
-  transcribe/polish made pluggable (`Transcriber`/`Polisher`), report wording parameterized
-  (`ReportOptions`), typecheck + build green, repo public at dested/video-to-prompt.
-- **Not built** — npm publish (name check, maybe scope), tests (the format writers are pure and
-  very testable — start there), a tiny demo page, Node/WebCodecs path, Handback consuming this
-  package instead of its copy.
+- **Done (2026-08-06)**: extracted from Handback; pluggable transcribe/polish; ReportOptions.
+- **Done (2026-10-15, uncommitted)**: v2. WebCodecs engine via mediabunny with seek fallback,
+  250 ms cadence, signature + Selector, readable 2000 px sheets with change boxes, report v2
+  (Start here, errors beside frames, log/speech wording), container-first probe, chunked audio,
+  cancellation, 36 unit tests, fixture eval harness, README, package renamed. Fixture 9/9 states
+  (v1 6/9); real clip 2.6 s (v1 33.3 s); 5-min sparse-keyframe webm 22 s (v1 358 s).
+  Review page: https://claude.ai/artifact/NbTveyzKvZNgdSqka4Z1nG
+- **Waiting on Sal**: approve the v2 sample, commit, `npm login` + publish, then the Handback
+  migration (web + extension, MCP brief H1–H3), bx (`narration: 'log'`, drop `wording.ts`),
+  coterie (npm package instead of vendored dist).
+- **Open**: recorder chrome (Handback's side panel, floating bar) still causes noise frames on
+  real clips; an `ignore`-regions option waits for Handback to pass its own geometry.

@@ -1,11 +1,21 @@
 {
-  "name": "video-to-prompt",
-  "version": "0.1.0",
-  "description": "Distill a narrated screen recording into an agent-ready prompt package: deduped keyframes, contact sheets, a transcript, and a markdown report built for LLM consumption.",
+  "name": "@dested/video-to-prompt",
+  "version": "1.0.0",
+  "description": "Distill a narrated screen recording into an agent-ready prompt package: the keyframes that matter, contact sheets with changes outlined, a timed transcript, and a markdown report built for a model to read.",
   "type": "module",
   "license": "MIT",
   "author": "Sal Aiello (https://github.com/dested)",
   "repository": "github:dested/video-to-prompt",
+  "homepage": "https://github.com/dested/video-to-prompt#readme",
+  "keywords": [
+    "screen-recording",
+    "llm",
+    "prompt",
+    "keyframes",
+    "webcodecs",
+    "transcript",
+    "agent"
+  ],
   "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,17 +25,28 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test",
+    "test": "bun test test/unit",
     "build": "rimraf dist && tsc -p tsconfig.build.json",
     "prepare": "npm run build",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build",
     "prettier": "prettier --write ."
   },
   "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "playwright-core": "1.64.1",
     "prettier": "^3.8.3",
     "rimraf": "^6.0.1",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "mediabunny": "^1.61.0"
   }
 }

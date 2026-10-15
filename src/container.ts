@@ -12,7 +12,7 @@ export interface ClipContainer {
 }
 
 export function containerFor(type: string, hasVideo: boolean): ClipContainer {
-  const mime = type.split(';')[0].trim().toLowerCase()
+  const mime = (type.split(';')[0] ?? '').trim().toLowerCase()
   switch (mime) {
     case 'video/mp4':
       return { videoFile: 'walkthrough.mp4', contentType: 'video/mp4' }

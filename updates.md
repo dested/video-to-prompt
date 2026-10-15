@@ -1,5 +1,11 @@
 # Updates
 
+## 2026-10-15 — fresh-eyes evaluation → v2 ("make it incredible")
+Rebuilt extraction (WebCodecs/mediabunny + seek fallback, 250 ms, luma signature + pure Selector),
+readable sheets with change boxes, report v2, format video-to-prompt/2; 36 unit tests + fixture eval
+(9/9 states vs v1 6/9). Renamed to @dested/video-to-prompt 1.0.0 (unpublished). Per plans/2026-10-15-fresh-eyes-evaluation.md.
+Touched: src/* (new decode, signature, select, cancel), test/, README.md, package.json, tsconfig*.json, kit docs
+
 ## 2026-08-25 — speaker labels + frame quality (mirrored from Handback)
 `TranscriptSegment.speaker` (1-based rank after talk-time normalization, set by the consumer's
 transcribe client — this library doesn't transcribe), render-time S1:/S2: prefixes in

@@ -1,4 +1,4 @@
-import type { Recording, RecordingFrame, TranscriptSegment } from './types'
+import type { Recording, RecordingFrame, TranscriptSegment } from './types.js'
 
 /**
  * A walkthrough is one clock: takes are laid end to end in the order they were
@@ -29,7 +29,7 @@ export function partSpans(recordings: Recording[]): PartSpan[] {
 }
 
 export function totalMs(spans: PartSpan[]): number {
-  return spans.length ? spans[spans.length - 1].end : 0
+  return spans[spans.length - 1]?.end ?? 0
 }
 
 function startOf(rec: Recording, spans: PartSpan[]): number {

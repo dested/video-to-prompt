@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["unit/**/*.ts", "browser/**/*.ts", "../src/**/*.ts"],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": ["bun"]
+  }
+}

@@ -1,9 +1,11 @@
-import { decodeMono, SAMPLE_RATE } from './audio'
-import { containerFor, contentTypeFor } from './container'
-import { mmss, recDirName } from './format'
-import { extractFrames } from './frames'
-import { makeGrids, type GridFrame } from './grids'
-import { probeClip } from './probe'
+import { decodeMono, SAMPLE_RATE } from './audio.js'
+import { CancelledError, isCancelled } from './cancel.js'
+import { containerFor, contentTypeFor } from './container.js'
+import type { FrameEngine } from './decode.js'
+import { mmss, pad2, recDirName } from './format.js'
+import { extractFrames } from './frames.js'
+import { makeGrids, type GridFrame } from './grids.js'
+import { probeClip } from './probe.js'
 import {
   buildManifestTxt,
   buildRecordingJson,
@@ -11,8 +13,8 @@ import {
   buildTranscriptTxt,
   sheetFile,
   type ReportOptions,
-} from './report'
-import { slugify } from './slug'
+} from './report.js'
+import { slugify } from './slug.js'
 import type {
   ClipInput,
   DistillStage,
@@ -23,7 +25,7 @@ import type {
   StageProgress,
   TranscriberId,
   TranscriptSegment,
-} from './types'
+} from './types.js'
 
 /**
  * The pipeline, end to end: already-recorded clips in, a complete walkthrough
@@ -35,6 +37,15 @@ import type {
  * One clip at a time, on purpose: a phone has a few hundred MB of headroom and
  * a decoded minute of audio is ~2 MB of Float32 before the frames are counted.
  */
+
+/** Mirrors timeline.ts: a take with no measured duration still occupies a second of the clock. */
+const MIN_SPAN_MS = 1000
+
+/** "03 · 0:05", plus how long it lasted when the state didn't stick. Times are the report's (walkthrough) clock. */
+function tileLabel(frame: RecordingFrame, axisStart: number): string {
+  const held = frame.transient && frame.held !== undefined ? ` · gone after ${(frame.held / 1000).toFixed(1)} s` : ''
+  return `${pad2(frame.index)} · ${mmss(axisStart + frame.t)}${held}`
+}
 
 /** Speech-to-text over the decoded narration. Return null to ship without words — never throw for "no transcript". */
 export type TranscribeFn = (
@@ -49,8 +60,10 @@ export type TranscribeFn = (
 ) => Promise<TranscriptSegment[] | null>
 
 export interface Transcriber {
-  /** Lands in recording.json and the report's trust caveat ('whisper', 'groq', or any label). */
+  /** Short stable id, stored in recording.json ('whisper', 'groq', anything). */
   id: TranscriberId
+  /** How the report names it where it says who wrote the words (e.g. "Whisper large-v3-turbo, hosted"). Default: the id. */
+  label?: string
   run: TranscribeFn
 }
 
@@ -75,6 +88,12 @@ export interface DistillOptions {
   signal?: AbortSignal
   /** Branding/wording for report.md and MANIFEST.txt. */
   report?: ReportOptions
+  /** Contact sheet width in px. Default 2000 (Claude Code's display limit); 2576 suits a model fed through the API. */
+  sheetWidth?: number
+  /** Frame decoding: 'auto' (default) uses WebCodecs where it can and seeks otherwise. */
+  frameEngine?: FrameEngine | 'auto'
+  /** Put each take's own video in the file set. Default true. */
+  includeVideo?: boolean
 }
 
 export interface DistillOutput {
@@ -98,11 +117,10 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
   const now = Date.now()
 
   const stop = () => {
-    if (opts.signal?.aborted) throw new Error('cancelled')
+    if (opts.signal?.aborted) throw new CancelledError()
   }
   /** Cancellation travels as an error like any other; it is the one nothing may swallow. */
-  const cancelled = (error: unknown): boolean =>
-    Boolean(opts.signal?.aborted) || (error instanceof Error && error.message === 'cancelled')
+  const cancelled = (error: unknown): boolean => isCancelled(error, opts.signal)
   /** Local progress within one clip, scaled onto the whole run. -1 stays -1. */
   const report = (stage: DistillStage, clipIdx: number, local: number, detail?: string) => {
     const pct = local < 0 ? -1 : (clipIdx + Math.min(1, Math.max(0, local))) / count
@@ -138,6 +156,8 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
   const files: OutputFile[] = []
   let transcribed = false
   let polished = false
+  /** Where this take starts on the walkthrough's one clock: takes lay end to end, as in timeline.ts. */
+  let axisStart = 0
 
   for (const [i, entry] of ordered.entries()) {
     stop()
@@ -151,10 +171,8 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     // video there is slow. A picker UI already paid it, so when it hands its
     // probe over the pipeline takes it rather than decoding the file twice.
     report('probe', i, -1, label)
-    const probe = entry.probe ?? (await probeClip(file))
-    // The poster is for a picker screen; nothing here shows one. A borrowed
-    // probe's poster belongs to whoever lent it — only revoke our own.
-    if (!entry.probe && probe.posterUrl) URL.revokeObjectURL(probe.posterUrl)
+    // The poster is for a picker screen; nothing here shows one.
+    const probe = entry.probe ?? (await probeClip(file, { poster: false, signal: opts.signal }))
 
     // Audio first, frames second, and the order is load-bearing. Decoding the
     // audio pulls the whole file in as an ArrayBuffer and then holds a Float32
@@ -164,7 +182,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     let transcript: TranscriptSegment[] = []
     if (opts.transcriber) {
       report('audio', i, -1, label)
-      let audio = await decodeMono(file)
+      let audio = await decodeMono(file, { signal: opts.signal })
       if (audio) {
         report('transcribe', i, 0, label)
         const heard = await opts.transcriber.run(audio, {
@@ -206,6 +224,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     // sheets would leave report.md citing grid files nobody wrote.
     let kept: RecordingFrame[] = []
     let sampled = 0
+    let sampling: { engine: string; stepMs: number } | undefined
     const framesMark = files.length
     try {
       let frames: RecordingFrame[] = []
@@ -215,12 +234,15 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         report('frames', i, 0, `0:00 of ${total}`)
         const extracted = await extractFrames(file, probe.durationMs, {
           signal: opts.signal,
+          narration: transcript,
+          engine: opts.frameEngine,
           onProgress: (fraction) =>
             report('frames', i, fraction, `${mmss(fraction * probe.durationMs)} of ${total}`),
         })
         frames = extracted.frames
         frameBlobs = extracted.blobs
         sampled = extracted.sampled
+        sampling = { engine: extracted.engine, stepMs: extracted.stepMs }
       }
       stop()
 
@@ -233,7 +255,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         if (!blob) continue
         files.push({ path: `${dir}/${frame.file}`, blob, contentType: contentTypeFor(frame.file) })
         kept.push(frame)
-        gridFrames.push({ blob, label: frame.file.split('/').pop() ?? frame.file })
+        gridFrames.push({ blob, label: tileLabel(frame, axisStart), change: frame.change })
       }
       // `files` owns every surviving blob now; the extractor's own map does not.
       frameBlobs = new Map()
@@ -242,7 +264,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
       if (gridFrames.length) {
         report('sheets', i, 0, label)
         // Nine at a time in frame order — exactly how report.ts maps a frame to its sheet.
-        for (const [n, sheet] of (await makeGrids(gridFrames)).entries()) {
+        for (const [n, sheet] of (await makeGrids(gridFrames, { width: opts.sheetWidth })).entries()) {
           const path = sheetFile(n + 1, `${dir}/`)
           files.push({ path, blob: sheet, contentType: contentTypeFor(path) })
         }
@@ -254,6 +276,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
       files.length = framesMark
       kept = []
       sampled = 0
+      sampling = undefined
       report('frames', i, 1, 'keyframes unavailable — shipping video + transcript')
     }
     stop()
@@ -272,9 +295,13 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         startedAt,
         durationMs: probe.durationMs,
         sampled,
+        ...(sampling ? { sampling } : {}),
         frames: kept,
         transcript,
         ...(transcript.length && opts.transcriber ? { transcriber: opts.transcriber.id } : {}),
+        ...(transcript.length && opts.transcriber?.label
+          ? { transcriberLabel: opts.transcriber.label }
+          : {}),
         ...(takePolished ? { polished: true } : {}),
         events: [],
         videoFile: container.videoFile,
@@ -285,11 +312,14 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     // reader of the format counts on them existing.
     files.push(text(`${dir}/transcript.txt`, buildTranscriptTxt(take.meta)))
     files.push(text(`${dir}/recording.json`, buildRecordingJson(session, take, opts.report?.url)))
-    files.push({
-      path: `${dir}/${container.videoFile}`,
-      blob: file,
-      contentType: container.contentType,
-    })
+    if (opts.includeVideo ?? true) {
+      files.push({
+        path: `${dir}/${container.videoFile}`,
+        blob: file,
+        contentType: container.contentType,
+      })
+    }
+    axisStart += Math.max(probe.durationMs, MIN_SPAN_MS)
   }
 
   stop()

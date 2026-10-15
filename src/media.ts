@@ -1,3 +1,5 @@
+import { CancelledError } from './cancel.js'
+
 /**
  * The bits of the DOM every stage of the pipeline needs: an offscreen video
  * element to read a picked file through, seeks that can't hang forever, and a
@@ -59,13 +61,19 @@ export function hiddenVideo(src: string): HTMLVideoElement {
  *  - the whole wait shares one `LOAD_TIMEOUT_MS` budget, so a file that stalls
  *    in two places still fails inside the timeout the caller was promised.
  */
-export async function readyVideo(video: HTMLVideoElement, message: string): Promise<void> {
+export async function readyVideo(
+  video: HTMLVideoElement,
+  message: string,
+  signal?: AbortSignal
+): Promise<void> {
   const deadline = Date.now() + LOAD_TIMEOUT_MS
   const remaining = () => Math.max(0, deadline - Date.now())
 
-  if (video.readyState < 1) await waitFor(video, ['loadedmetadata'], remaining(), message)
+  if (video.readyState < 1) await waitFor(video, ['loadedmetadata'], remaining(), message, signal)
   await prime(video)
-  if (video.readyState < 2) await waitFor(video, ['canplay', 'loadeddata'], remaining(), message)
+  if (video.readyState < 2) {
+    await waitFor(video, ['canplay', 'loadeddata'], remaining(), message, signal)
+  }
 }
 
 /** Play a frame and stop. Every failure here is survivable — the wait after it is the real test. */
@@ -97,18 +105,25 @@ export function releaseVideo(video: HTMLVideoElement): void {
   video.remove()
 }
 
-/** Resolve on the first of `events`, reject on 'error' or after `timeoutMs`. */
+/** Resolve on the first of `events`; reject on 'error', after `timeoutMs`, or the moment `signal` fires. */
 export function waitFor(
   el: HTMLVideoElement,
   events: string[],
   timeoutMs: number,
-  message: string
+  message: string,
+  signal?: AbortSignal
 ): Promise<void> {
+  if (signal?.aborted) return Promise.reject(new CancelledError())
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       window.clearTimeout(timer)
       for (const name of events) el.removeEventListener(name, onDone)
       el.removeEventListener('error', onError)
+      signal?.removeEventListener('abort', onAbort)
+    }
+    const onAbort = () => {
+      cleanup()
+      reject(new CancelledError())
     }
     const onDone = () => {
       cleanup()
@@ -124,6 +139,7 @@ export function waitFor(
     }, timeoutMs)
     for (const name of events) el.addEventListener(name, onDone)
     el.addEventListener('error', onError)
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 
@@ -156,13 +172,14 @@ function presented(): Promise<void> {
 export async function seekTo(
   video: HTMLVideoElement,
   timeSec: number,
-  message: string
+  message: string,
+  signal?: AbortSignal
 ): Promise<void> {
   if (Math.abs(video.currentTime - timeSec) < SEEK_EPSILON && video.readyState >= 2) {
     await presented()
     return
   }
-  const landed = waitFor(video, ['seeked'], SEEK_TIMEOUT_MS, message)
+  const landed = waitFor(video, ['seeked'], SEEK_TIMEOUT_MS, message, signal)
   video.currentTime = timeSec
   await landed
   await presented()

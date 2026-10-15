@@ -1,0 +1,494 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`report a narrated take 1`] = `
+"# Checkout total
+
+0:31 screen recording · 10 keyframes · 7 spoken lines · 1 error captured · recorded 2026-10-15 14:02 · http://localhost:4810
+
+**This walkthrough:** \`https://handback.example/w/s1\`
+
+A person recorded this while using the app, talking through what they saw: a bug, review notes, or a change they want. The narration says what they meant; the frames show what was on screen. When the two disagree, trust the frames. The words were transcribed by Whisper large-v3 (Groq). The speaker didn't read them back, so names, units and small numbers are the likeliest to be wrong.
+
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+
+## Start here
+
+The 4 of 10 frames that carry the most evidence, in time order (★ in the timeline):
+
+1. \`rec-01/frames/03-0053.jpg\` · 0:05 · changed bottom-right (small), gone after 0.5 s — "Saving shows a toast that disappears fast."
+2. \`rec-01/frames/04-0090.jpg\` · 0:09 · changed top-right (small) — "Look at the total, it says 1,240 but the line items add up to 1,180."
+3. \`rec-01/frames/05-0160.jpg\` · 0:16 · changed top-right (small) · error at 0:16: TypeError: cannot read properties of undefined (reading "code") — "The coupon field still throws a validation error even with a valid code."
+4. \`rec-01/frames/10-0295.jpg\` · 0:30 · most of the screen changed, final state — "And that's where it ends up."
+
+**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time. A magenta outline marks what changed since the tile before it; the frames themselves are untouched.
+
+![0:00–0:27, frames 1–9](rec-01/grids/grid_01.jpg)
+
+![0:30, frame 10](rec-01/grids/grid_02.jpg)
+
+## Timeline
+
+Each spoken line sits at its stamp, where the speaker started; the second time is where they stopped. → names the frame that best shows it, when that isn't the frame just above.
+
+- **0:00** \`rec-01/frames/01-0000.jpg\` first frame
+  > **0:01–0:03** This is the checkout page for a single order.
+- **0:03** \`rec-01/frames/02-0030.jpg\` most of the screen changed
+  > **0:05–0:06** Saving shows a toast that disappears fast. → \`rec-01/frames/03-0053.jpg\`
+- **0:05** \`rec-01/frames/03-0053.jpg\` ★ changed bottom-right (small), gone after 0.5 s
+  > **0:08–0:11** Look at the total, it says 1,240 but the line items add up to 1,180. → \`rec-01/frames/04-0090.jpg\`
+- **0:09** \`rec-01/frames/04-0090.jpg\` ★ changed top-right (small)
+  > **0:16–0:18** The coupon field still throws a validation error even with a valid code. → \`rec-01/frames/05-0160.jpg\`
+- **0:16** \`rec-01/frames/05-0160.jpg\` ★ changed top-right (small)
+  - \`[error] @ 0:16\` TypeError: cannot read properties of undefined (reading "code")
+- **0:19** \`rec-01/frames/06-0190.jpg\` most of the screen changed
+  > **0:19–0:21** The shipping modal opens fine.
+- **0:22** \`rec-01/frames/07-0220.jpg\` changed center (small)
+- **0:24** \`rec-01/frames/08-0240.jpg\` changed down the center
+  > **0:27–0:29** Hovering the info icon shows a tooltip. → \`rec-01/frames/09-0273.jpg\`
+- **0:27** \`rec-01/frames/09-0273.jpg\` changed top-right (small), gone after 0.8 s
+  > **0:29–0:31** And that's where it ends up. → \`rec-01/frames/10-0295.jpg\`
+- **0:30** \`rec-01/frames/10-0295.jpg\` ★ most of the screen changed, final state
+
+Also here: the raw video \`rec-01/video.webm\` (0:31), for humans; \`rec-NN/recording.json\` (frame times, change boxes, spoken line windows, events) and \`rec-NN/transcript.txt\` (the words alone).
+
+<sub>handback · format video-to-prompt/2 · full listing: \`MANIFEST.txt\`</sub>
+"
+`;
+
+exports[`report two sittings, two voices, live dictation 1`] = `
+"# Checkout total
+
+1:02 screen recording · 20 keyframes · 10 spoken lines · 1 error captured · recorded 2026-10-15 14:02–15:02 · http://localhost:4810
+
+A person recorded this while using the app, talking through what they saw: a bug, review notes, or a change they want. The narration says what they meant; the frames show what was on screen. When the two disagree, trust the frames. The words were transcribed by Whisper large-v3 (Groq) and live dictation (Web Speech). The speaker didn't read them back, so names, units and small numbers are the likeliest to be wrong. More than one voice was heard: S1 is the one who spoke most. It was recorded in 2 sittings, laid end to end on one clock.
+
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+
+## Start here
+
+The 6 of 20 frames that carry the most evidence, in time order (★ in the timeline):
+
+1. \`rec-01/frames/03-0053.jpg\` · 0:05 · changed bottom-right (small), gone after 0.5 s — "Saving shows a toast that disappears fast."
+2. \`rec-01/frames/04-0090.jpg\` · 0:09 · changed top-right (small) — "Look at the total, it says 1,240 but the line items add up to 1,180."
+3. \`rec-01/frames/05-0160.jpg\` · 0:16 · changed top-right (small) · error at 0:16: TypeError: cannot read properties of undefined (reading "code") — "The coupon field still throws a validation error even with a valid code."
+4. \`rec-02/frames/03-0053.jpg\` · 0:36 · changed bottom-right (small), gone after 0.5 s — "Saving shows a toast that disappears fast."
+5. \`rec-02/frames/04-0090.jpg\` · 0:40 · changed top-right (small) — "Look at the total, it says 1,240 but the line items add up to 1,180."
+6. \`rec-02/frames/10-0295.jpg\` · 1:01 · most of the screen changed, final state
+
+**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time. A magenta outline marks what changed since the tile before it; the frames themselves are untouched.
+
+![0:00–0:27, part 1 frames 1–9](rec-01/grids/grid_01.jpg)
+
+![0:30, part 1 frame 10](rec-01/grids/grid_02.jpg)
+
+![0:31–0:58, part 2 frames 1–9](rec-02/grids/grid_01.jpg)
+
+![1:01, part 2 frame 10](rec-02/grids/grid_02.jpg)
+
+## Timeline
+
+Each spoken line sits at its stamp, where the speaker started; the second time is where they stopped. → names the frame that best shows it, when that isn't the frame just above.
+
+- **0:00** \`rec-01/frames/01-0000.jpg\` first frame
+  > **0:01–0:03** S1: This is the checkout page for a single order.
+- **0:03** \`rec-01/frames/02-0030.jpg\` most of the screen changed
+  > **0:05–0:06** S2: Saving shows a toast that disappears fast. → \`rec-01/frames/03-0053.jpg\`
+- **0:05** \`rec-01/frames/03-0053.jpg\` ★ changed bottom-right (small), gone after 0.5 s
+  > **0:08–0:11** S1: Look at the total, it says 1,240 but the line items add up to 1,180. → \`rec-01/frames/04-0090.jpg\`
+- **0:09** \`rec-01/frames/04-0090.jpg\` ★ changed top-right (small)
+  > **0:16–0:18** S1: The coupon field still throws a validation error even with a valid code. → \`rec-01/frames/05-0160.jpg\`
+- **0:16** \`rec-01/frames/05-0160.jpg\` ★ changed top-right (small)
+  - \`[error] @ 0:16\` TypeError: cannot read properties of undefined (reading "code")
+- **0:19** \`rec-01/frames/06-0190.jpg\` most of the screen changed
+  > **0:19–0:21** S2: The shipping modal opens fine.
+- **0:22** \`rec-01/frames/07-0220.jpg\` changed center (small)
+- **0:24** \`rec-01/frames/08-0240.jpg\` changed down the center
+  > **0:27–0:29** S1: Hovering the info icon shows a tooltip. → \`rec-01/frames/09-0273.jpg\`
+- **0:27** \`rec-01/frames/09-0273.jpg\` changed top-right (small), gone after 0.8 s
+  > **0:29–0:31** S1: And that's where it ends up. → \`rec-01/frames/10-0295.jpg\`
+- **0:30** \`rec-01/frames/10-0295.jpg\` most of the screen changed, final state
+- **0:31** \`rec-02/frames/01-0000.jpg\` first frame
+  > **0:32–0:34** S1: This is the checkout page for a single order.
+- **0:34** \`rec-02/frames/02-0030.jpg\` most of the screen changed
+  > **0:36–0:37** S2: Saving shows a toast that disappears fast. → \`rec-02/frames/03-0053.jpg\`
+- **0:36** \`rec-02/frames/03-0053.jpg\` ★ changed bottom-right (small), gone after 0.5 s
+  > **0:39–0:42** S1: Look at the total, it says 1,240 but the line items add up to 1,180. → \`rec-02/frames/04-0090.jpg\`
+- **0:40** \`rec-02/frames/04-0090.jpg\` ★ changed top-right (small)
+- **0:47** \`rec-02/frames/05-0160.jpg\` changed top-right (small)
+- **0:50** \`rec-02/frames/06-0190.jpg\` most of the screen changed
+- **0:53** \`rec-02/frames/07-0220.jpg\` changed center (small)
+- **0:55** \`rec-02/frames/08-0240.jpg\` changed down the center
+- **0:58** \`rec-02/frames/09-0273.jpg\` changed top-right (small), gone after 0.8 s
+- **1:01** \`rec-02/frames/10-0295.jpg\` ★ most of the screen changed, final state
+
+Also here: the raw video \`rec-01/video.webm\` (0:31), \`rec-02/video.webm\` (0:31), for humans; \`rec-NN/recording.json\` (frame times, change boxes, spoken line windows, events) and \`rec-NN/transcript.txt\` (the words alone).
+
+<sub>video-to-prompt · format video-to-prompt/2 · full listing: \`MANIFEST.txt\`</sub>
+"
+`;
+
+exports[`report a tool's action log 1`] = `
+"# Checkout total
+
+0:31 screen recording · 10 keyframes · 7 logged actions · 1 error captured · recorded 2026-10-15 14:02 · http://localhost:4810
+
+bx drove this browser session. The log says what was done; the frames show what the app did. Where they disagree, trust the frames. The text lines are bx's action log: what each command did, written by bx itself. They are exact, not transcribed.
+
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+
+## Start here
+
+The 4 of 10 frames that carry the most evidence, in time order (★ in the timeline):
+
+1. \`rec-01/frames/03-0053.jpg\` · 0:05 · changed bottom-right (small), gone after 0.5 s — "Saving shows a toast that disappears fast."
+2. \`rec-01/frames/04-0090.jpg\` · 0:09 · changed top-right (small) — "Look at the total, it says 1,240 but the line items add up to 1,180."
+3. \`rec-01/frames/05-0160.jpg\` · 0:16 · changed top-right (small) · error at 0:16: TypeError: cannot read properties of undefined (reading "code") — "The coupon field still throws a validation error even with a valid code."
+4. \`rec-01/frames/10-0295.jpg\` · 0:30 · most of the screen changed, final state — "And that's where it ends up."
+
+**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time. A magenta outline marks what changed since the tile before it; the frames themselves are untouched.
+
+![0:00–0:27, frames 1–9](rec-01/grids/grid_01.jpg)
+
+![0:30, frame 10](rec-01/grids/grid_02.jpg)
+
+## Timeline
+
+Each logged action sits at its stamp, when the command finished; the second time bounds where its effect should show. → names the frame that best shows it, when that isn't the frame just above.
+
+- **0:00** \`rec-01/frames/01-0000.jpg\` first frame
+  > **0:01–0:03** This is the checkout page for a single order.
+- **0:03** \`rec-01/frames/02-0030.jpg\` most of the screen changed
+  > **0:05–0:06** Saving shows a toast that disappears fast. → \`rec-01/frames/03-0053.jpg\`
+- **0:05** \`rec-01/frames/03-0053.jpg\` ★ changed bottom-right (small), gone after 0.5 s
+  > **0:08–0:11** Look at the total, it says 1,240 but the line items add up to 1,180. → \`rec-01/frames/04-0090.jpg\`
+- **0:09** \`rec-01/frames/04-0090.jpg\` ★ changed top-right (small)
+  > **0:16–0:18** The coupon field still throws a validation error even with a valid code. → \`rec-01/frames/05-0160.jpg\`
+- **0:16** \`rec-01/frames/05-0160.jpg\` ★ changed top-right (small)
+  - \`[error] @ 0:16\` TypeError: cannot read properties of undefined (reading "code")
+- **0:19** \`rec-01/frames/06-0190.jpg\` most of the screen changed
+  > **0:19–0:21** The shipping modal opens fine.
+- **0:22** \`rec-01/frames/07-0220.jpg\` changed center (small)
+- **0:24** \`rec-01/frames/08-0240.jpg\` changed down the center
+  > **0:27–0:29** Hovering the info icon shows a tooltip. → \`rec-01/frames/09-0273.jpg\`
+- **0:27** \`rec-01/frames/09-0273.jpg\` changed top-right (small), gone after 0.8 s
+  > **0:29–0:31** And that's where it ends up. → \`rec-01/frames/10-0295.jpg\`
+- **0:30** \`rec-01/frames/10-0295.jpg\` ★ most of the screen changed, final state
+
+Also here: the raw video \`video.webm\` (0:31), for humans; \`rec-NN/recording.json\` (frame times, change boxes, logged action windows, events) and \`rec-NN/transcript.txt\` (the words alone).
+
+<sub>video-to-prompt · format video-to-prompt/2 · full listing: \`MANIFEST.txt\`</sub>
+"
+`;
+
+exports[`report a silent take 1`] = `
+"# Checkout total
+
+0:31 screen recording · 10 keyframes · 1 error captured · recorded 2026-10-15 14:02 · http://localhost:4810
+
+A person recorded this while using the app: a bug, review notes, or a change they want. No spoken lines came with it; the frames are all there is.
+
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+
+## Start here
+
+The 4 of 10 frames that carry the most evidence, in time order (★ in the timeline):
+
+1. \`rec-01/frames/03-0053.jpg\` · 0:05 · changed bottom-right (small), gone after 0.5 s
+2. \`rec-01/frames/05-0160.jpg\` · 0:16 · changed top-right (small) · error at 0:16: TypeError: cannot read properties of undefined (reading "code")
+3. \`rec-01/frames/09-0273.jpg\` · 0:27 · changed top-right (small), gone after 0.8 s
+4. \`rec-01/frames/10-0295.jpg\` · 0:30 · most of the screen changed, final state
+
+**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time. A magenta outline marks what changed since the tile before it; the frames themselves are untouched.
+
+![0:00–0:27, frames 1–9](rec-01/grids/grid_01.jpg)
+
+![0:30, frame 10](rec-01/grids/grid_02.jpg)
+
+## Timeline
+
+- **0:00** \`rec-01/frames/01-0000.jpg\` first frame
+- **0:03** \`rec-01/frames/02-0030.jpg\` most of the screen changed
+- **0:05** \`rec-01/frames/03-0053.jpg\` ★ changed bottom-right (small), gone after 0.5 s
+- **0:09** \`rec-01/frames/04-0090.jpg\` changed top-right (small)
+- **0:16** \`rec-01/frames/05-0160.jpg\` ★ changed top-right (small)
+  - \`[error] @ 0:16\` TypeError: cannot read properties of undefined (reading "code")
+- **0:19** \`rec-01/frames/06-0190.jpg\` most of the screen changed
+- **0:22** \`rec-01/frames/07-0220.jpg\` changed center (small)
+- **0:24** \`rec-01/frames/08-0240.jpg\` changed down the center
+- **0:27** \`rec-01/frames/09-0273.jpg\` ★ changed top-right (small), gone after 0.8 s
+- **0:30** \`rec-01/frames/10-0295.jpg\` ★ most of the screen changed, final state
+
+Also here: the raw video \`rec-01/video.webm\` (0:31), for humans; \`rec-NN/recording.json\` (frame times, change boxes, events).
+
+<sub>video-to-prompt · format video-to-prompt/2 · full listing: \`MANIFEST.txt\`</sub>
+"
+`;
+
+exports[`files beside the report MANIFEST 1`] = `
+"format: video-to-prompt/2
+source: handback — Checkout total
+recorded: 2026-10-15 14:02 | 1 part(s) | http://localhost:4810
+note: every path below is relative to this walkthrough
+--- files ---
+report.md              the whole walkthrough in order, on one timeline. read this one
+MANIFEST.txt           this listing
+rec-01/                part 1 — 31s, 7 spoken line(s)
+rec-01/frames/         10 keyframes, NN-mmss.jpg (the mmss is time inside this part's own video.webm, not a position in report.md's timeline) — a candidate every 250 ms (webcodecs), 125 examined
+rec-01/grids/          2 contact sheet(s), 9 frames each, in order, changes outlined in magenta
+rec-01/transcript.txt  Whisper large-v3 (Groq) — NOT checked by the speaker; treat wording as approximate
+rec-01/recording.json  frame times, change boxes, spoken line windows, 1 error(s)
+rec-01/video.webm      raw video (for humans)
+note: line stamps are where the speaker started; the bracketed range is the window the line covers
+--- transcript: rec-01 (0:31) ---
+[0:01–0:03] This is the checkout page for a single order.
+[0:05–0:06] Saving shows a toast that disappears fast.
+[0:08–0:11] Look at the total, it says 1,240 but the line items add up to 1,180.
+[0:16–0:18] The coupon field still throws a validation error even with a valid code.
+[0:19–0:21] The shipping modal opens fine.
+[0:27–0:29] Hovering the info icon shows a tooltip.
+[0:29–0:31] And that's where it ends up.
+"
+`;
+
+exports[`files beside the report recording.json 1`] = `
+{
+  "format": "video-to-prompt/2",
+  "recording": {
+    "dir": "rec-01",
+    "droppedEvents": 0,
+    "durationMs": 31000,
+    "events": [
+      {
+        "at": "0:16",
+        "level": "error",
+        "message": "TypeError: cannot read properties of undefined (reading "code")",
+      },
+    ],
+    "frames": [
+      {
+        "at": "0:00",
+        "file": "frames/01-0000.jpg",
+        "held": 3000,
+        "index": 1,
+        "reason": "start",
+        "tMs": 0,
+      },
+      {
+        "at": "0:03",
+        "dist": 838,
+        "file": "frames/02-0030.jpg",
+        "held": 2250,
+        "index": 2,
+        "reason": "change",
+        "tMs": 3000,
+      },
+      {
+        "at": "0:05",
+        "change": {
+          "h": 0.044,
+          "w": 0.075,
+          "x": 0.913,
+          "y": 0.933,
+        },
+        "dist": 46,
+        "file": "frames/03-0053.jpg",
+        "held": 500,
+        "index": 3,
+        "reason": "change",
+        "tMs": 5250,
+        "transient": true,
+      },
+      {
+        "at": "0:09",
+        "change": {
+          "h": 0.044,
+          "w": 0.181,
+          "x": 0.794,
+          "y": 0.144,
+        },
+        "dist": 34,
+        "file": "frames/04-0090.jpg",
+        "held": 7000,
+        "index": 4,
+        "reason": "change",
+        "tMs": 9000,
+      },
+      {
+        "at": "0:16",
+        "change": {
+          "h": 0.144,
+          "w": 0.113,
+          "x": 0.794,
+          "y": 0.189,
+        },
+        "dist": 106,
+        "file": "frames/05-0160.jpg",
+        "held": 3000,
+        "index": 5,
+        "reason": "change",
+        "tMs": 16000,
+      },
+      {
+        "at": "0:19",
+        "dist": 12283,
+        "file": "frames/06-0190.jpg",
+        "held": 3000,
+        "index": 6,
+        "reason": "change",
+        "tMs": 19000,
+      },
+      {
+        "at": "0:22",
+        "change": {
+          "h": 0.03,
+          "w": 0.05,
+          "x": 0.4,
+          "y": 0.5,
+        },
+        "dist": 34,
+        "file": "frames/07-0220.jpg",
+        "held": 1250,
+        "index": 7,
+        "reason": "change",
+        "tMs": 22000,
+      },
+      {
+        "at": "0:24",
+        "change": {
+          "h": 0.844,
+          "w": 0.538,
+          "x": 0.15,
+          "y": 0.089,
+        },
+        "dist": 387,
+        "file": "frames/08-0240.jpg",
+        "held": 3250,
+        "index": 8,
+        "reason": "change",
+        "tMs": 24000,
+      },
+      {
+        "at": "0:27",
+        "change": {
+          "h": 0.033,
+          "w": 0.075,
+          "x": 0.863,
+          "y": 0.3,
+        },
+        "dist": 36,
+        "file": "frames/09-0273.jpg",
+        "held": 750,
+        "index": 9,
+        "reason": "change",
+        "tMs": 27250,
+        "transient": true,
+      },
+      {
+        "at": "0:30",
+        "dist": 1225,
+        "file": "frames/10-0295.jpg",
+        "held": 1500,
+        "index": 10,
+        "reason": "end",
+        "tMs": 29500,
+      },
+    ],
+    "interrupted": false,
+    "part": 1,
+    "sampled": 125,
+    "sampling": {
+      "engine": "webcodecs",
+      "stepMs": 250,
+    },
+    "startedAt": "2026-10-15T14:02:00.000Z",
+    "transcriber": "groq",
+    "transcriberLabel": "Whisper large-v3 (Groq)",
+    "transcript": [
+      {
+        "aboutFromMs": 0,
+        "aboutToMs": 5200,
+        "at": "0:01",
+        "endMs": 2700,
+        "tMs": 600,
+        "text": "This is the checkout page for a single order.",
+      },
+      {
+        "aboutFromMs": 2800,
+        "aboutToMs": 8800,
+        "at": "0:05",
+        "endMs": 6300,
+        "tMs": 4800,
+        "text": "Saving shows a toast that disappears fast.",
+      },
+      {
+        "aboutFromMs": 6200,
+        "aboutToMs": 13300,
+        "at": "0:08",
+        "endMs": 10800,
+        "tMs": 8200,
+        "text": "Look at the total, it says 1,240 but the line items add up to 1,180.",
+      },
+      {
+        "aboutFromMs": 13600,
+        "aboutToMs": 20500,
+        "at": "0:16",
+        "endMs": 18000,
+        "tMs": 15600,
+        "text": "The coupon field still throws a validation error even with a valid code.",
+      },
+      {
+        "aboutFromMs": 17400,
+        "aboutToMs": 23900,
+        "at": "0:19",
+        "endMs": 21400,
+        "tMs": 19400,
+        "text": "The shipping modal opens fine.",
+      },
+      {
+        "aboutFromMs": 24800,
+        "aboutToMs": 31000,
+        "at": "0:27",
+        "endMs": 28600,
+        "tMs": 26800,
+        "text": "Hovering the info icon shows a tooltip.",
+      },
+      {
+        "aboutFromMs": 27000,
+        "aboutToMs": 31000,
+        "at": "0:29",
+        "endMs": 30700,
+        "tMs": 29000,
+        "text": "And that's where it ends up.",
+      },
+    ],
+    "transcriptReviewed": false,
+    "video": "video.webm",
+  },
+  "session": {
+    "createdAt": "2026-10-15T14:02:00.000Z",
+    "name": "Checkout total",
+    "origin": "http://localhost:4810",
+    "slug": "checkout-total",
+    "url": "https://handback.example/w/s1",
+  },
+}
+`;
+
+exports[`files beside the report transcript.txt 1`] = `
+"[0:01–0:03] This is the checkout page for a single order.
+[0:05–0:06] Saving shows a toast that disappears fast.
+[0:08–0:11] Look at the total, it says 1,240 but the line items add up to 1,180.
+[0:16–0:18] The coupon field still throws a validation error even with a valid code.
+[0:19–0:21] The shipping modal opens fine.
+[0:27–0:29] Hovering the info icon shows a tooltip.
+[0:29–0:31] And that's where it ends up.
+"
+`;
+
+exports[`ranking whereOnScreen names the region in words 1`] = `"bottom-right"`;
+
+exports[`ranking whereOnScreen names the region in words 2`] = `"top-left"`;
+
+exports[`ranking whereOnScreen names the region in words 3`] = `"center"`;
+
+exports[`ranking whereOnScreen names the region in words 4`] = `"down the center"`;
