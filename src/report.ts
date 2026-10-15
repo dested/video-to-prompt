@@ -162,6 +162,8 @@ const START_MIN = 3
 const START_MAX = 6
 /** A captured error this close to a frame is evidence for it, and is named beside it in "start here". */
 const ERROR_NEAR_MS = 3000
+/** A line repeating the one before word for word, this soon after it ends, is a transcriber's echo. */
+const ECHO_MS = 5000
 /** A run of frames with nothing said between them collapses past this many. */
 const RUN_MAX = 8
 /** Words that mark a line as a complaint: its frames are likelier to be the evidence. */
@@ -242,7 +244,14 @@ function axisLines(recordings: Recording[], spans: PartSpan[]): Line[] {
   const total = totalMs(spans)
   for (const rec of recordings) {
     const span = spans.find((s) => s.rec.id === rec.id)
-    for (const seg of rec.meta.transcript) {
+    let prev: { text: string; end: number } | undefined
+    for (const seg of [...rec.meta.transcript].sort((a, b) => a.t - b.t)) {
+      // Whisper repeats the previous chunk's last line at a chunk boundary. Same
+      // words, starting moments after the first copy ended: say it once.
+      const text = seg.text.replace(/\s+/g, ' ').trim().toLowerCase()
+      const echo = prev !== undefined && text === prev.text && seg.t - prev.end <= ECHO_MS
+      prev = { text, end: seg.t + spokenMs(seg) }
+      if (echo) continue
       const pos = linePos(rec, seg, spans)
       let end = Math.min(total, pos + spokenMs(seg))
       let from = Math.max(0, pos - SPEECH_LEAD_MS)
@@ -973,9 +982,13 @@ export function buildReport(
   }
 
   const sheets = contactSheets(spans)
+  // Format 1 sheets were drawn without outlines; never promise one on them.
+  const boxed = takes.every((r) => hasChangeBoxes(r.meta))
   if (sheets.length) {
     out.push(
-      `**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time. A magenta outline marks what changed since the tile before it; the frames themselves are untouched.`
+      boxed
+        ? `**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time. A magenta outline marks what changed since the tile before it; the frames themselves are untouched.`
+        : `**Contact sheets** show every keyframe, nine per image in time order, each tile captioned with its frame number and time.`
     )
     out.push('')
     for (const sheet of sheets) {
@@ -1005,10 +1018,16 @@ export function buildReport(
       )
       .join(', ')
     const said = takes.some((r) => r.meta.transcript.length)
+    const holds = [
+      'frame times',
+      ...(boxed ? ['change boxes'] : []),
+      ...(said ? [`${opts.words.line} windows`] : []),
+      'events',
+    ]
     out.push(
       said
-        ? `Also here: the raw video ${videos}, for humans; \`rec-NN/recording.json\` (frame times, change boxes, ${opts.words.line} windows, events) and \`rec-NN/transcript.txt\` (the words alone).`
-        : `Also here: the raw video ${videos}, for humans; \`rec-NN/recording.json\` (frame times, change boxes, events).`
+        ? `Also here: the raw video ${videos}, for humans; \`rec-NN/recording.json\` (${holds.join(', ')}) and \`rec-NN/transcript.txt\` (the words alone).`
+        : `Also here: the raw video ${videos}, for humans; \`rec-NN/recording.json\` (${holds.join(', ')}).`
     )
     out.push('')
   }

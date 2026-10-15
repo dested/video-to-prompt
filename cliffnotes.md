@@ -13,8 +13,8 @@ changed outlined, a timed transcript (via a pluggable speech engine), and a
 is meant to become Handback's only pipeline (see Status).
 
 Public repo **github.com/dested/video-to-prompt**; npm name **`@dested/video-to-prompt`**
-(1.1.0 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
-git tag (`github:dested/video-to-prompt#v1.1.0`): each `vX.Y.Z` tag is a release-only commit off
+(1.1.1 prepared, not yet published: needs Sal's `npm login`). Until then consumers install the
+git tag (`github:dested/video-to-prompt#v1.1.1`): each `vX.Y.Z` tag is a release-only commit off
 main with `dist/` force-added, because bun won't run `prepare` for git deps.
 
 ## Quick Reference

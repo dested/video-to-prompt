@@ -1,5 +1,10 @@
 # Updates
 
+## 2026-10-15 — 1.1.1: honest format-1 sheets, transcriber echoes
+Found on a real Handback walkthrough: format 1 sheets no longer promised magenta outlines (or change
+boxes in recording.json); a line repeating the one before within 5 s (Whisper's chunk echo) is said once.
+Touched: src/report.ts, test/unit/report.test.ts, package.json
+
 ## 2026-10-15 — 1.1.0: recording.json reader, cuts, captions, evidenceAt
 
 For Handback's server-side brief: `readRecordingJson` (formats 1+2, extension shape), report `cuts`

@@ -293,7 +293,10 @@ describe('reading recording.json back', () => {
     for (const f of v1.meta.frames) delete f.change
     const report = buildReport(session, [v1])
     expect(report).not.toContain('most of the screen changed')
+    expect(report).not.toContain('magenta')
+    expect(report).not.toContain('change boxes')
     expect(buildReport(session, [take()])).toContain('most of the screen changed')
+    expect(buildReport(session, [take()])).toContain('magenta')
   })
 
   test("the extension's shape: webspeech, folder-prefixed files, m:ss-only events", () => {
@@ -338,6 +341,21 @@ describe('reading recording.json back', () => {
 })
 
 describe('host additions', () => {
+  test("a transcriber's echo of the line before is said once", () => {
+    const echoed = [
+      ...transcript.slice(0, 3),
+      {
+        t: 11000,
+        d: 3000,
+        text: 'look at the total,  it says 1,240 but the line items add up to 1,180.',
+      },
+      ...transcript.slice(3),
+    ]
+    const report = buildReport(session, [take({ transcript: echoed })])
+    expect(report.match(/it says 1,240/gi)).toHaveLength(2) // Start here + the timeline, once each
+    expect(report).toContain('7 spoken lines')
+  })
+
   test('a cut leaves out what it covers and marks the gap', () => {
     const report = buildReport(session, [take()], {
       cuts: [{ fromMs: 15000, toMs: 19000, reason: 'retook the coupon part' }],
