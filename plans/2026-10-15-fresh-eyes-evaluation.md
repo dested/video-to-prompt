@@ -137,8 +137,19 @@ spread; clamp line ends; honest wording ("listed", not "inlined"); a narration-s
 
 ## Progress (2026-10-15)
 
-- Library side of the ranked list is built and measured (see cliffnotes Status and the review page
-  https://claude.ai/artifact/NbTveyzKvZNgdSqka4Z1nG). Uncommitted, pending Sal's approval.
+- Library side of the ranked list is built, measured and released as git tags v1.0.0–v1.1.2 (see
+  cliffnotes Status and the review page https://claude.ai/artifact/NbTveyzKvZNgdSqka4Z1nG).
+- Prompt eval, old brief vs new (Handback `scripts/brief-eval/`, fixture app, Opus 5.5, 3 runs
+  each, $1.58): new saw the transient toast 3/3 (old 0/3, v1 never kept the frame), read the
+  validation timing right 3/3, traced the payment banner's sequence 3/3, at $0.23 vs $0.28 a run
+  and 4 vs 10 tool calls. It also caught two errors the v2 report put into the brief: the "confirm"
+  line pointed at the frame after the dialog closed (fixed in 1.1.2: time on screen weighs in), and
+  "changed top-right" on the total's frame was the email field's focus ring (1.1.2 explains what a
+  change note means).
+- **Follow-up, open design:** a one-digit change (the $1,240 → $1,245 total) moves a 12×12 px
+  signature cell by 4 levels, under codec noise, so it never registers or gets a box. The
+  narration rule still keeps a frame of it. A finer second signature for change boxes only would
+  catch it, but a digit and the mouse pointer are the same size; that needs its own eval.
 - Remaining before this plan is done: commit, npm publish, Handback web + extension migration and
   MCP brief (H1–H3), bx and coterie switch-over, then delete
   `W:\junk\video-to-prompt\sample-7fa3\` (Coterie PII).

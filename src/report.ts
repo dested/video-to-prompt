@@ -447,19 +447,33 @@ function shotScore(shot: Shot, lines: Line[], traces: Trace[]): number {
  * comes first: the frame showing when it began, anything that appeared while
  * it was spoken, and what appeared just before (people narrate what just
  * happened). Frames from after it ended count only when there is nothing else.
+ *
+ * Within the line, time on screen decides: a dialog that was up for most of
+ * "it asks me to confirm, which is fine, I'll cancel" beats the frame of it
+ * closing in the last half second. A frame that appears early in the line is
+ * still the strongest bet; one that only arrives as the line ends is mostly
+ * the result of its last words.
  */
 function bestFor(line: Line, shots: Shot[], worth: Map<string, number>): Shot | undefined {
   const sameTake = (s: Shot) =>
     line.seg.tl !== undefined || s.frame.tl !== undefined || s.rec.id === line.rec.id
-  const showing = onScreen(line.pos, shots.filter(sameTake))
+  const candidates = shots.filter(sameTake)
+  const showing = onScreen(line.pos, candidates)
+  const len = Math.max(1, line.end - line.pos)
+  const nextAfterStart = candidates.find((s) => s.pos > line.pos)
   let best: Shot | undefined
   let bestScore = -Infinity
-  for (const shot of shots) {
-    if (!sameTake(shot)) continue
+  for (const shot of candidates) {
     let bonus: number
-    if (shot === showing) bonus = 1.5
-    else if (shot.pos > line.pos && shot.pos <= line.end) bonus = 3
-    else if (shot.pos >= line.from && shot.pos <= line.pos) {
+    if (shot === showing) {
+      // Up when the line began; worth more the longer it stayed up.
+      let until = Math.min(line.end, nextAfterStart?.pos ?? line.end)
+      const f = shot.frame
+      if (f.transient && f.held !== undefined) until = Math.min(until, shot.pos + f.held)
+      bonus = 1.5 + (1.5 * Math.max(0, until - line.pos)) / len
+    } else if (shot.pos > line.pos && shot.pos <= line.end) {
+      bonus = 1.5 + (1.5 * (line.end - shot.pos)) / len
+    } else if (shot.pos >= line.from && shot.pos <= line.pos) {
       // Just before it began. A transient already gone by then is a weaker bet.
       const f = shot.frame
       const gone = f.transient && f.held !== undefined && shot.pos + f.held <= line.pos
@@ -699,6 +713,11 @@ function orientation(takes: Recording[], shots: Shot[], opts: ResolvedOptions): 
   if (takes.some((r) => r.meta.frames.some((f) => f.pointer?.nx !== undefined))) {
     out.push(
       'An accent crosshair drawn on a frame is the mouse pointer, and `pointer` under a frame names what it was over.'
+    )
+  }
+  if (shots.some((s) => s.frame.change)) {
+    out.push(
+      '"changed top-right" says where a frame differs from the one before it, not where what is being discussed sits; a change as small as one digit can be in a frame without being named.'
     )
   }
   if (opts.cuts.length) {

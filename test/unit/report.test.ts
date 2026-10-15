@@ -398,4 +398,27 @@ describe('host additions', () => {
     expect(after.line).toBeUndefined()
     expect(after.frame?.path).toBe('rec-01/frames/10-0295.jpg')
   })
+
+  test('a line points at what was up while it was said, not what arrived as it ended', () => {
+    // The fixture app's confirm dialog: up 19–22 s, closed at 22 s, narrated 19.5–22.5 s.
+    const closed = frames.map((f) =>
+      f.index === 7 ? frame(7, 22000, { reason: 'change', dist: 12283, held: 1250 }) : f
+    )
+    const said: TranscriptSegment[] = [
+      {
+        t: 3500,
+        d: 3000,
+        text: 'I save the invoice and it says saved, but it disappears really fast.',
+      },
+      {
+        t: 19500,
+        d: 3000,
+        text: "When I click send it asks me to confirm, which is fine, I'll cancel.",
+      },
+    ]
+    const recs = [take({ frames: closed, transcript: said, events: [] })]
+    expect(evidenceAt(recs, 20000).frame?.path).toBe('rec-01/frames/06-0190.jpg')
+    // Something that appears partway through is still what the line is about.
+    expect(evidenceAt(recs, 4000).frame?.path).toBe('rec-01/frames/03-0053.jpg')
+  })
 })

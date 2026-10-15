@@ -9,7 +9,7 @@ exports[`report a narrated take 1`] = `
 
 A person recorded this while using the app, talking through what they saw: a bug, review notes, or a change they want. The narration says what they meant; the frames show what was on screen. When the two disagree, trust the frames. The words were transcribed by Whisper large-v3 (Groq). The speaker didn't read them back, so names, units and small numbers are the likeliest to be wrong.
 
-Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ. "changed top-right" says where a frame differs from the one before it, not where what is being discussed sits; a change as small as one digit can be in a frame without being named.
 
 ## Start here
 
@@ -62,7 +62,7 @@ exports[`report two sittings, two voices, live dictation 1`] = `
 
 A person recorded this while using the app, talking through what they saw: a bug, review notes, or a change they want. The narration says what they meant; the frames show what was on screen. When the two disagree, trust the frames. The words were transcribed by Whisper large-v3 (Groq) and live dictation (Web Speech). The speaker didn't read them back, so names, units and small numbers are the likeliest to be wrong. More than one voice was heard: S1 is the one who spoke most. It was recorded in 2 sittings, laid end to end on one clock.
 
-Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ. "changed top-right" says where a frame differs from the one before it, not where what is being discussed sits; a change as small as one digit can be in a frame without being named.
 
 ## Start here
 
@@ -134,7 +134,7 @@ exports[`report a tool's action log 1`] = `
 
 bx drove this browser session. The log says what was done; the frames show what the app did. Where they disagree, trust the frames. The text lines are bx's action log: what each command did, written by bx itself. They are exact, not transcribed.
 
-Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ. "changed top-right" says where a frame differs from the one before it, not where what is being discussed sits; a change as small as one digit can be in a frame without being named.
 
 ## Start here
 
@@ -187,7 +187,7 @@ exports[`report a silent take 1`] = `
 
 A person recorded this while using the app: a bug, review notes, or a change they want. No spoken lines came with it; the frames are all there is.
 
-Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ.
+Every path is relative to this walkthrough's files (the paths inside the folder if you downloaded it). Times are positions on one clock from the start; the \`mmss\` inside a frame's filename is time inside that take's own video, so the two can differ. "changed top-right" says where a frame differs from the one before it, not where what is being discussed sits; a change as small as one digit can be in a frame without being named.
 
 ## Start here
 
