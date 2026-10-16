@@ -1,5 +1,12 @@
 # Updates
 
+## 2026-10-15 — 1.1.5: lines nobody said are dropped
+
+Asked: fix Whisper's "Thank you." over silence. `dropUnheard` judges every line against the audio
+it claims; distill runs it before polish. On 1,116 real lines from 28 Personal takes it drops the
+13 hallucinations (9 Hometeam, Gym 2:46, Oct 3 tail, two near-silent takes) and nothing else.
+Touched: src/unheard.ts, src/distill.ts, src/index.ts, test/unit/unheard.test.ts, README.md, cliffnotes.md, package.json
+
 ## 2026-10-15 — 1.1.4: live-recorded frames promise no outlines
 
 Found migrating Handback's /record: its 64×64 live rule writes format 2 takes with no change boxes.

@@ -1,4 +1,5 @@
 import { decodeMono, SAMPLE_RATE } from './audio.js'
+import { dropUnheard } from './unheard.js'
 import { CancelledError, isCancelled } from './cancel.js'
 import { containerFor, contentTypeFor } from './container.js'
 import type { FrameEngine } from './decode.js'
@@ -207,13 +208,15 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
           signal: opts.signal,
           onProgress: (fraction) => report('transcribe', i, fraction, label),
         })
-        // Megabytes per minute of clip; the frames below need the room.
-        audio = null
         if (heard) {
           transcribed = true
-          transcript = Array.isArray(heard) ? heard : heard.segments
+          // Whatever the engine, a line is checked against the audio it claims:
+          // Whisper answers silence with "Thank you.", and nobody said that.
+          transcript = dropUnheard(Array.isArray(heard) ? heard : heard.segments, audio)
           if (!Array.isArray(heard)) heardLabel = heard.label
         }
+        // Megabytes per minute of clip; the frames below need the room.
+        audio = null
       }
     }
     stop()

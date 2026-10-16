@@ -62,6 +62,7 @@ export {
 } from './select.js'
 export { makeGrids, SHEET_WIDTH, type GridFrame, type GridOptions } from './grids.js'
 export { decodeMono, encodeWav, SAMPLE_RATE, type DecodeOptions } from './audio.js'
+export { dropUnheard, type TimedLine } from './unheard.js'
 export { abortable, CancelledError, isCancelled, throwIfAborted } from './cancel.js'
 export { containerFor, contentTypeFor, type ClipContainer } from './container.js'
 export {

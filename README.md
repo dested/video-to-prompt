@@ -43,7 +43,10 @@ const result = await distill(
 ### With transcription
 
 The library decodes narration to 16 kHz mono Float32 and hands it to whatever speech engine you
-plug in. `encodeWav` wraps the samples in the one container every speech API accepts.
+plug in. `encodeWav` wraps the samples in the one container every speech API accepts. Whatever the
+engine returns is checked against the audio it claims: a line over a window with nothing audible,
+or a stock phrase ("Thank you.") claiming seconds where nothing stands out of the room, is dropped
+(`dropUnheard`, also exported for servers that transcribe on their own).
 
 ```ts
 import { distill, encodeWav, type Transcriber } from '@dested/video-to-prompt'
@@ -153,6 +156,7 @@ live recorder can share the same signature and selection rules.
 | `Selector` / `diffSignatures` / `signatureFromRgba`                              | the selection rule and the signature it runs on. Pure, no DOM                                                 |
 | `makeGrids(frames, { width? })`                                                  | contact sheets, batched to match the report's frame→sheet map                                                 |
 | `decodeMono(file)` / `encodeWav(samples)`                                        | narration → 16 kHz mono Float32 → 16-bit PCM WAV                                                              |
+| `dropUnheard(segments, audio, sampleRate?)`                                      | the lines a speech engine wrote over silence, removed (Whisper's "Thank you."). Pure, no DOM                  |
 | `buildReport` / `buildManifestTxt` / `buildRecordingJson` / `buildTranscriptTxt` | the format's writers                                                                                          |
 | `rankFrames(recordings, { cuts? })`                                              | the "start here" frames as data, for a host that hands an agent images directly                               |
 | `evidenceAt(recordings, ms, { cuts? })`                                          | what one moment holds: the line said there, the frame that best shows it, an error beside it                  |

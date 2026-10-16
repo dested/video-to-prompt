@@ -59,6 +59,9 @@ src/
   grids.ts       Contact sheets: 2000 px default, 3 cols (5 portrait), labels, magenta change boxes
   audio.ts       decodeMono via mediabunny AudioSampleSink, 30 s resample chunks, AAC priming trim,
                  decodeAudioData fallback; encodeWav (16-bit PCM)
+  unheard.ts     dropUnheard: PURE gate over any engine's lines vs the audio they claim (nothing
+                 audible > −70 dBFS; stock phrase ≥ 4 s with < 15% of it 10 dB over the room; no
+                 words). distill runs it before polish
   report.ts      The format's writers: report.md (Start here / sheets / Timeline), MANIFEST.txt,
                  transcript.txt, recording.json; rankFrames, evidenceAt, whereOnScreen;
                  ReportOptions voice + host hooks (cuts ✂, captions `shows:`)
@@ -72,7 +75,7 @@ src/
   slug.ts        slugify
 test/
   tsconfig.json  Typechecks tests + harness + src (allowImportingTsExtensions, bun types)
-  unit/          bun tests: helpers.ts (synthetic signatures, replay), signature/select/report tests
+  unit/          bun tests: helpers.ts (synthetic signatures, replay), signature/select/report/unheard
   browser/       Playwright harness: fixtures.ts (builds the Ledgerly fixture + truth/narration),
                  harness-core.ts/run.ts (distill in headless Chromium), eval.ts, sigdump.ts, tune.ts
   .fixtures/ .runs/   generated, gitignored
