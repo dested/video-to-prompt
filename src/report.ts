@@ -394,7 +394,12 @@ function describe(shot: Shot): string {
   const f = shot.frame
   const parts: string[] = []
   if (f.reason === 'start') parts.push('first frame')
-  else if (f.change) {
+  else if (f.detail) {
+    // The close-up is the change: what differs from the frame it sits on, and nothing else.
+    parts.push(
+      `a close-up (${whereOnScreen(f.detail.box)}); the rest of the screen is as in frame ${f.detail.of}`
+    )
+  } else if (f.change) {
     const small = f.change.w * f.change.h < 0.02 ? ' (small)' : ''
     parts.push(`changed ${whereOnScreen(f.change)}${small}`)
   } else if (f.reason === 'narration') parts.push('on screen during the line below')
@@ -406,6 +411,11 @@ function describe(shot: Shot): string {
   else parts.push('changed')
   if (f.transient && f.held !== undefined) parts.push(`gone after ${seconds(f.held)}`)
   if (f.reason === 'end' || (shot.last && f.reason !== 'start')) parts.push('final state')
+  const back = (f.seen ?? []).map(([from, to]) => span(shot.pos + from - f.t, shot.pos + to - f.t))
+  if (back.length) {
+    const listed = back.length > 4 ? [...back.slice(0, 4), `${back.length - 4} more`] : back
+    parts.push(`also what was on screen ${listed.join(', ')}`)
+  }
   return parts.join(', ')
 }
 
@@ -490,8 +500,26 @@ function bestFor(line: Line, shots: Shot[], worth: Map<string, number>): Shot | 
   return shots.find((s) => sameTake(s) && claims(line, s))
 }
 
-/** The frame showing at `pos`: the latest before it, passing over transients that had already gone. */
+/**
+ * The frame showing at `pos`. A frame that stood in for the screen then (a
+ * page view it already showed, scrolled or come back to: its `seen` spans)
+ * comes first; otherwise the latest before it, passing over transients that
+ * had already gone.
+ */
 function onScreen(pos: number, shots: Shot[]): Shot | undefined {
+  let standIn: Shot | undefined
+  let standInFrom = -Infinity
+  for (const shot of shots) {
+    for (const [from, to] of shot.frame.seen ?? []) {
+      const a = shot.pos + from - shot.frame.t
+      const b = shot.pos + to - shot.frame.t
+      if (pos >= a && pos < b && a > standInFrom) {
+        standIn = shot
+        standInFrom = a
+      }
+    }
+  }
+  if (standIn) return standIn
   let found: Shot | undefined
   for (const shot of shots) {
     if (shot.pos > pos) break
@@ -1091,6 +1119,7 @@ export function buildRecordingJson(session: Session, recording: Recording, url?:
         durationMs: rec.durationMs,
         sampled: rec.sampled,
         sampling: rec.sampling,
+        ...(rec.crop ? { crop: rec.crop } : {}),
         video: rec.videoFile,
         transcriber,
         transcriberLabel: rec.transcriberLabel,
@@ -1109,6 +1138,8 @@ export function buildRecordingJson(session: Session, recording: Recording, url?:
           held: f.held,
           transient: f.transient,
           pointer: f.pointer,
+          ...(f.detail ? { detail: f.detail } : {}),
+          ...(f.seen?.length ? { seenMs: f.seen } : {}),
           // Only when a human moved it onto the walkthrough's axis.
           ...(f.tl === undefined ? {} : { tlMs: f.tl }),
         })),

@@ -21,7 +21,7 @@ interface HarnessSegment {
 /** The slice of the public API the harness drives — v1 and v2 both satisfy it. */
 export interface HarnessLib {
   distill(
-    clips: { file: File }[],
+    clips: { file: File; crop?: HarnessBox }[],
     opts: {
       title: string
       transcriber?: {
@@ -36,9 +36,16 @@ export interface HarnessLib {
   ): Promise<{ files: HarnessFile[]; frameCount: number; lineCount: number; durationMs: number }>
 }
 
+export interface HarnessBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface RunRequest {
-  /** Server path of each clip, in recording order. */
-  clips: { url: string; name: string; type: string; lastModified?: number }[]
+  /** Server path of each clip, in recording order. `crop` needs v2 1.2+. */
+  clips: { url: string; name: string; type: string; lastModified?: number; crop?: HarnessBox }[]
   title: string
   outPrefix: string
   /** Scripted narration per clip, returned by a stand-in transcriber (ms from clip start). */
@@ -70,7 +77,7 @@ export function install(lib: HarnessLib): void {
   window.v2p = {
     async run(req) {
       const started = performance.now()
-      const clips: { file: File }[] = []
+      const clips: { file: File; crop?: HarnessBox }[] = []
       for (const clip of req.clips) {
         const res = await fetch(clip.url)
         if (!res.ok) throw new Error(`fixture ${clip.url}: ${res.status}`)
@@ -80,6 +87,7 @@ export function install(lib: HarnessLib): void {
             type: clip.type,
             lastModified: clip.lastModified ?? Date.now(),
           }),
+          ...(clip.crop ? { crop: clip.crop } : {}),
         })
       }
 

@@ -1,6 +1,7 @@
 import { CancelledError, isCancelled, throwIfAborted } from './cancel.js'
 import { hiddenVideo, readyVideo, releaseVideo, seekTo, UNREADABLE } from './media.js'
 import type { VideoSample } from 'mediabunny'
+import type { FrameBox } from './types.js'
 
 /**
  * Pixels out of a recorded file, at the times the extractor asks for. Two
@@ -27,6 +28,16 @@ export interface SourceFrame {
   height: number
   /** Draw the frame scaled into (0, 0, dw, dh). Valid only until the iterator advances. */
   draw(ctx: CanvasRenderingContext2D, dw: number, dh: number): void
+  /** Draw the source rectangle (sx, sy, sw, sh), in display pixels, scaled into (0, 0, dw, dh). */
+  drawRegion(
+    ctx: CanvasRenderingContext2D,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    dw: number,
+    dh: number
+  ): void
 }
 
 export interface FrameSource {
@@ -51,9 +62,17 @@ export interface OpenOptions {
   /** 'auto' (default) tries WebCodecs and falls back to seeking. */
   engine?: FrameEngine | 'auto'
   signal?: AbortSignal
+  /** Only this part of the picture (fractions of the frame): every frame handed out is that region. */
+  crop?: FrameBox
 }
 
 export async function openFrameSource(file: Blob, opts: OpenOptions = {}): Promise<FrameSource> {
+  const source = await openUncropped(file, opts)
+  const crop = opts.crop
+  return crop ? cropped(source, crop) : source
+}
+
+async function openUncropped(file: Blob, opts: OpenOptions): Promise<FrameSource> {
   const want = opts.engine ?? 'auto'
   if (want !== 'seek') {
     const fast = await openWebCodecs(file).catch(() => null)
@@ -63,6 +82,31 @@ export async function openFrameSource(file: Blob, opts: OpenOptions = {}): Promi
     if (want === 'webcodecs') throw new Error(FRAMES_UNREADABLE)
   }
   return openSeek(file, opts.signal)
+}
+
+/** A source whose frames are one region of the original's. */
+function cropped(source: FrameSource, crop: FrameBox): FrameSource {
+  return {
+    get engine() {
+      return source.engine
+    },
+    async *frames(times, signal) {
+      for await (const f of source.frames(times, signal)) {
+        const sx = Math.round(crop.x * f.width)
+        const sy = Math.round(crop.y * f.height)
+        const sw = Math.max(1, Math.round(crop.w * f.width))
+        const sh = Math.max(1, Math.round(crop.h * f.height))
+        yield {
+          t: f.t,
+          width: sw,
+          height: sh,
+          draw: (ctx, dw, dh) => f.drawRegion(ctx, sx, sy, sw, sh, dw, dh),
+          drawRegion: (ctx, x, y, w, h, dw, dh) => f.drawRegion(ctx, sx + x, sy + y, w, h, dw, dh),
+        }
+      }
+    },
+    close: () => source.close(),
+  }
 }
 
 async function openWebCodecs(file: Blob): Promise<FrameSource | null> {
@@ -93,6 +137,8 @@ async function openWebCodecs(file: Blob): Promise<FrameSource | null> {
           width: sample.displayWidth,
           height: sample.displayHeight,
           draw: (ctx, dw, dh) => sample.draw(ctx, 0, 0, dw, dh),
+          drawRegion: (ctx, sx, sy, sw, sh, dw, dh) =>
+            sample.draw(ctx, sx, sy, sw, sh, 0, 0, dw, dh),
         })
         // Start a second early: the first time wants the frame already on screen.
         const from = times.length ? Math.max(origin, origin + (times[0] ?? 0) / 1000 - 1) : origin
@@ -161,6 +207,8 @@ async function openSeek(file: Blob, signal?: AbortSignal): Promise<FrameSource> 
           width: video.videoWidth,
           height: video.videoHeight,
           draw: (ctx, dw, dh) => ctx.drawImage(video, 0, 0, dw, dh),
+          drawRegion: (ctx, sx, sy, sw, sh, dw, dh) =>
+            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, dw, dh),
         }
       }
     },

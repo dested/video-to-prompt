@@ -119,3 +119,42 @@ host never forks the report. `recording.json` gained `polished`, `tlMs` and even
 round trip is exact; all additive, still format 2.
 **Rejected:** a reader in each host (three drifting copies again), zod in the library (a second
 runtime dep for one parser), bumping to format 3 (nothing was removed or renamed).
+
+## 2026-10-22 — No frame cap: a page model decides, not a budget
+
+**Why:** Sal's bar for Handback is 30 to 60 minute takes with nothing lost, whatever it costs.
+The 600-frame cap thinned qg (28 min reading one doc) into 600 near-identical frames, a third of
+them repeats. A second, finer signature grid (`scroll.ts`) places scrolled views on a page, so a
+frame is kept for rows nobody has seen yet or for what changed in place, and a passage come back
+to costs nothing (`seen`). Small changes become `detail` close-ups of the last full frame.
+**Rejected:** a smarter budget (any cap drops something on a long enough take), tuning the
+budget per minute (still a cap), masking the recorder panel as chronic change (crop it instead:
+`ClipInput.crop`).
+
+## 2026-10-22 — Video is found per block, over 20 seconds
+
+**Why:** a Meet call (six webcams filling the screen) made 2145 frames: webcam change is too
+sparse per cell for the heat mask, and a still wall in a tile changes whenever an arm sweeps
+past. An 8×8-cell block that changed in 10% of the last 80 steps is video; it and its neighbours
+are left out while anything near changed in the last 10 s. What must not vote was found on real
+takes: large steps, the second around a scroll, one or two pointer blobs, wide strips (a line
+selected, a row lit by hover). Each was a qg regression first.
+Each keyframe remembers its own video blocks, so a call come back to from another window
+matches its old frame instead of making new ones, and a window switch wipes the video history of
+what it repainted, so the window that replaced the call is never masked by it.
+Video gone still stays left out unless it now differs from the keyframe by a new picture's worth
+(40 cells): a face that settled a few cells from where it sat made a frame per narration line
+(toothio 227 → 175).
+**Rejected:** a 4 s window at 50% (webcams change on 10 to 40% of steps), masking only while a
+block itself changes (a face holding still for a second then made a frame), lookahead (the
+Selector is online; a scroll takes back the votes just before it instead), one global video map
+for the take (the terminal shares the call's blocks).
+
+## 2026-10-22 — The test harness compares against the old output, side by side
+
+**Why:** audits measure rows lost and repeats, but not whether Sal likes what comes out, and
+they mean nothing on video (every sample of a webcam call is "unseen"). `test/compare/build.ts`
+writes a static page per take: source video, old frame and new frame at the same moment, a
+timeline, a per-minute grid. zod is a devDependency for its parser only.
+**Rejected:** a published artifact (corpus takes carry other people's faces and private docs;
+the pages stay on disk).

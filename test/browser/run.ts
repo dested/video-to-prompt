@@ -6,6 +6,7 @@
  *       [--transcript <json>]      scripted narration: [[{t,d,text},…] per clip]
  *       [--title <text>] [--extra <json>]
  *       [--heard-label <text>]     the stand-in transcriber names its engine ({ segments, label })
+ *       [--crop x,y,w,h]           read only this part of every clip (fractions; v2 1.2+)
  *
  * The library is browser-only, so this is how it is exercised end to end: the
  * runner bundles a harness for the chosen source tree, serves it with the clips,
@@ -16,7 +17,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, resolve } from 'node:path'
 import { $ } from 'bun'
 import { chromium, type Browser } from 'playwright-core'
-import type { RunRequest, RunResult } from './harness-core.ts'
+import type { HarnessBox, RunRequest, RunResult } from './harness-core.ts'
 
 const repo = resolve(import.meta.dir, '../..')
 
@@ -33,6 +34,8 @@ export interface RunOptions {
   /** Git ref whose src/ to run; omitted = the working tree. */
   ref?: string
   transcripts?: RunRequest['transcripts']
+  /** Applied to every clip. */
+  crop?: HarnessBox
   transcriberId?: string
   heardLabel?: string
   title?: string
@@ -88,10 +91,13 @@ export async function runDistill(opts: RunOptions): Promise<RunResult> {
     type: MIME[extname(path).toLowerCase()] ?? 'application/octet-stream',
     // Spaced a minute apart in argument order: distill orders takes by mtime.
     lastModified: Date.UTC(2026, 9, 15, 12, i),
+    ...(opts.crop ? { crop: opts.crop } : {}),
   }))
 
   const server = Bun.serve({
     port: 0,
+    // A long take's own video comes back as one PUT.
+    maxRequestBodySize: 4 * 1024 ** 3,
     async fetch(req) {
       const url = new URL(req.url)
       if (url.pathname === '/') {
@@ -127,7 +133,13 @@ export async function runDistill(opts: RunOptions): Promise<RunResult> {
     await page.goto(`http://localhost:${server.port}/`)
     await page.waitForFunction(() => Boolean(window.v2p))
     const req: RunRequest = {
-      clips: clips.map(({ url, name, type, lastModified }) => ({ url, name, type, lastModified })),
+      clips: clips.map(({ url, name, type, lastModified, crop }) => ({
+        url,
+        name,
+        type,
+        lastModified,
+        ...(crop ? { crop } : {}),
+      })),
       title: opts.title ?? 'Fixture walkthrough',
       outPrefix: 'run',
       transcripts: opts.transcripts,
@@ -153,7 +165,15 @@ function arg(name: string): string | undefined {
 }
 
 if (import.meta.main) {
-  const flags = new Set(['--out', '--ref', '--transcript', '--title', '--extra', '--heard-label'])
+  const flags = new Set([
+    '--out',
+    '--ref',
+    '--transcript',
+    '--title',
+    '--extra',
+    '--heard-label',
+    '--crop',
+  ])
   const clips = process.argv
     .slice(2)
     .filter((a, i, all) => !a.startsWith('--') && !flags.has(all[i - 1] ?? ''))
@@ -166,6 +186,7 @@ if (import.meta.main) {
   }
   const transcriptPath = arg('--transcript')
   const extra = arg('--extra')
+  const [x = 0, y = 0, w = 1, h = 1] = (arg('--crop') ?? '').split(',').filter(Boolean).map(Number)
   const result = await runDistill({
     clips,
     out,
@@ -174,6 +195,7 @@ if (import.meta.main) {
     heardLabel: arg('--heard-label'),
     transcripts: transcriptPath ? JSON.parse(await readFile(transcriptPath, 'utf8')) : undefined,
     extra: extra ? JSON.parse(extra) : undefined,
+    crop: arg('--crop') ? { x, y, w, h } : undefined,
   })
   console.log(
     `${result.frameCount} frames · ${result.lineCount} lines · ${(result.durationMs / 1000).toFixed(1)}s video · ${(result.ms / 1000).toFixed(1)}s run`

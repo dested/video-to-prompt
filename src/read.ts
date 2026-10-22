@@ -119,13 +119,26 @@ function readFrame(v: unknown, i: number, dir: string): RecordingFrame | undefin
   const transient = bool(v.transient)
   const pointer = readPointer(v.pointer)
   const tl = num(v.tlMs)
+  const detail = readDetail(v.detail)
+  const seen = arr(v.seenMs)
+    .map((s) => (Array.isArray(s) ? [num(s[0]), num(s[1])] : []))
+    .filter((s): s is [number, number] => s[0] !== undefined && s[1] !== undefined && s[1] > s[0])
   if (dist !== undefined) frame.dist = dist
   if (change) frame.change = change
   if (held !== undefined) frame.held = held
   if (transient) frame.transient = true
   if (pointer) frame.pointer = pointer
   if (tl !== undefined) frame.tl = tl
+  if (detail) frame.detail = detail
+  if (seen.length) frame.seen = seen
   return frame
+}
+
+function readDetail(v: unknown): RecordingFrame['detail'] {
+  if (!isObj(v)) return undefined
+  const of = num(v.of)
+  const box = readBox(v.box)
+  return of !== undefined && box ? { of, box } : undefined
 }
 
 function readLine(v: unknown): TranscriptSegment | undefined {
@@ -191,6 +204,7 @@ export function readRecordingJson(input: unknown): ReadTake | null {
   const droppedEvents = num(rec.droppedEvents)
   const transcriberLabel = str(rec.transcriberLabel)
   const eventScope = str(rec.eventScope)
+  const crop = readBox(rec.crop)
 
   const recording: Recording = {
     id: `${slug || 'take'}:${part}`,
@@ -213,6 +227,7 @@ export function readRecordingJson(input: unknown): ReadTake | null {
       ...(transcript.length && transcriber && transcriber !== WEB_SPEECH ? { transcriber } : {}),
       ...(transcriberLabel ? { transcriberLabel } : {}),
       ...(engine !== undefined && stepMs !== undefined ? { sampling: { engine, stepMs } } : {}),
+      ...(crop ? { crop } : {}),
       ...(bool(rec.polished) ? { polished: true } : {}),
       ...(bool(rec.transcriptReviewed) ? { reviewed: true } : {}),
       events: arr(rec.events)

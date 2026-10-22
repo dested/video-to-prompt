@@ -30,6 +30,12 @@ export interface StageProgress {
 export interface ClipInput {
   file: File
   probe?: ClipProbe
+  /**
+   * Only this part of the picture is read (fractions of the frame): keyframes,
+   * change boxes and sheets are all of the region. For cutting a recorder's own
+   * panel or browser chrome out of a take.
+   */
+  crop?: FrameBox
 }
 
 /** One file of the output set, at the walkthrough-relative path it lives under. */
@@ -115,6 +121,19 @@ export interface RecordingFrame {
   held?: number
   /** Format 2: the screen went back to how it was before this frame (a toast, a flash of an error, a hover). */
   transient?: boolean
+  /**
+   * Format 2 (1.2+): other spans [from, to) ms when this frame is what was on
+   * screen. A page view it already shows (scrolled back to, or a few lines
+   * off) gets no frame of its own; the frame that shows it says when.
+   */
+  seen?: [number, number][]
+  /**
+   * Format 2 (1.2+): this image is a detail, not the whole screen. The screen
+   * then was frame `of` (same take) except inside `box`, and the image shows
+   * `box` of the screen at its own resolution: a highlight that moved, a
+   * message that appeared, a toast.
+   */
+  detail?: { of: number; box: FrameBox }
   pointer?: FramePointer
   tl?: number
 }
@@ -144,6 +163,8 @@ export interface RecordingMeta {
    * `dist`. A live recorder's frames have neither and leave it unset.
    */
   sampling?: { engine: string; stepMs: number }
+  /** The part of the picture the frames show, when the take was cropped. Frame boxes are within it. */
+  crop?: FrameBox
   /** A cleanup pass rewrote the wording. Timings are the transcriber's either way. */
   polished?: boolean
   rev?: number

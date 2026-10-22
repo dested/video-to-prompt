@@ -53,7 +53,10 @@ src/
                  stepping; withFallback switches mid-stream if WebCodecs throws
   signature.ts   160-column luma grid (rows by aspect), diffSignatures → changed/regions/box
   select.ts      Selector: PURE keyframe rule (major change, settle, transient, dedup, narration
-                 anchors, beat, final frame, budget, busy-cell heat mask). No DOM
+                 anchors, beat, final frame, busy-cell heat mask, per-block video mask, page
+                 model over scroll grids, parked views, detail picks). No DOM
+  scroll.ts      matchShift (band + vertical shift between scroll grids), residualAt (rows
+                 changed in place), changedInPlace
   frames.ts      extractFrames: candidates (250 ms webcodecs / 1 s seek) → signature → Selector;
                  only keepers become JPEGs. candidateTimes, frameBudget (40/min, [150,600])
   grids.ts       Contact sheets: 2000 px default, 3 cols (5 portrait), labels, magenta change boxes
@@ -77,7 +80,10 @@ test/
   tsconfig.json  Typechecks tests + harness + src (allowImportingTsExtensions, bun types)
   unit/          bun tests: helpers.ts (synthetic signatures, replay), signature/select/report/unheard
   browser/       Playwright harness: fixtures.ts (builds the Ledgerly fixture + truth/narration),
-                 harness-core.ts/run.ts (distill in headless Chromium), eval.ts, sigdump.ts, tune.ts
+                 harness-core.ts/run.ts (distill in headless Chromium; --crop), eval.ts,
+                 sigdump.ts (--cols/--rows for the scroll grid), tune.ts
+  compare/       build.ts: static side-by-side viewer (source video, old vs new frames, timeline,
+                 per-minute grid) from two packages of one recording
   .fixtures/ .runs/   generated, gitignored
 plans/           dated working docs (fresh-eyes evaluation)
 dist/            build output (gitignored)

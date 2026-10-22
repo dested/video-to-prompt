@@ -48,7 +48,8 @@ function tileLabel(frame: RecordingFrame, axisStart: number): string {
     frame.transient && frame.held !== undefined
       ? ` · gone after ${(frame.held / 1000).toFixed(1)} s`
       : ''
-  return `${pad2(frame.index)} · ${mmss(axisStart + frame.t)}${held}`
+  const detail = frame.detail ? ` · on ${pad2(frame.detail.of)}` : ''
+  return `${pad2(frame.index)} · ${mmss(axisStart + frame.t)}${detail}${held}`
 }
 
 /**
@@ -154,6 +155,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
     .map((clip, position) => ({
       file: clip.file,
       probe: clip.probe,
+      crop: clip.crop,
       position,
       at: Number.isFinite(clip.file.lastModified) ? clip.file.lastModified : 0,
     }))
@@ -257,6 +259,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
           signal: opts.signal,
           narration: transcript,
           engine: opts.frameEngine,
+          crop: entry.crop,
           onProgress: (fraction) =>
             report('frames', i, fraction, `${mmss(fraction * probe.durationMs)} of ${total}`),
         })
@@ -276,7 +279,13 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         if (!blob) continue
         files.push({ path: `${dir}/${frame.file}`, blob, contentType: contentTypeFor(frame.file) })
         kept.push(frame)
-        gridFrames.push({ blob, label: tileLabel(frame, axisStart), change: frame.change })
+        const base = frame.detail ? frameBlobs.get(frame.detail.of) : undefined
+        gridFrames.push({
+          blob,
+          label: tileLabel(frame, axisStart),
+          change: frame.change,
+          ...(frame.detail && base ? { detail: { base, box: frame.detail.box } } : {}),
+        })
       }
       // `files` owns every surviving blob now; the extractor's own map does not.
       frameBlobs = new Map()
@@ -319,6 +328,7 @@ export async function distill(clips: ClipInput[], opts: DistillOptions): Promise
         durationMs: probe.durationMs,
         sampled,
         ...(sampling ? { sampling } : {}),
+        ...(sampling && entry.crop ? { crop: entry.crop } : {}),
         frames: kept,
         transcript,
         ...(transcript.length && opts.transcriber ? { transcriber: opts.transcriber.id } : {}),

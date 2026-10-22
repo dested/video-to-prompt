@@ -32,7 +32,7 @@ export interface SigDump {
 const PAGE_ENTRY = `
 import { openFrameSource } from ${JSON.stringify(join(repo, 'src/decode.ts'))}
 import { SIG_COLS, sigRows } from ${JSON.stringify(join(repo, 'src/signature.ts'))}
-window.dump = async ({ url, name, type, stepMs, durationMs, engine, sigCols }) => {
+window.dump = async ({ url, name, type, stepMs, durationMs, engine, sigCols, sigRowsOverride }) => {
   const started = performance.now()
   const blob = await (await fetch(url)).blob()
   const file = new File([blob], name, { type })
@@ -47,7 +47,7 @@ window.dump = async ({ url, name, type, stepMs, durationMs, engine, sigCols }) =
   const got = []
   for await (const f of source.frames(times)) {
     if (!cols) {
-      cols = sigCols || SIG_COLS; rows = Math.round(sigRows(f.width, f.height) * cols / SIG_COLS); width = f.width; height = f.height
+      cols = sigCols || SIG_COLS; rows = sigRowsOverride || Math.round(sigRows(f.width, f.height) * cols / SIG_COLS); width = f.width; height = f.height
       canvas.width = cols; canvas.height = rows
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
@@ -74,7 +74,8 @@ export async function sigDump(
   stepMs: number,
   engine: string,
   durationMs: number,
-  sigCols = 0
+  sigCols = 0,
+  sigRowsOverride = 0
 ): Promise<SigDump> {
   const outDir = join(repo, 'test/browser/.out/sigdump')
   await mkdir(outDir, { recursive: true })
@@ -88,6 +89,8 @@ export async function sigDump(
   let sig: Uint8Array | null = null
   const server = Bun.serve({
     port: 0,
+    // An hour of grids comes back as one PUT.
+    maxRequestBodySize: 4 * 1024 ** 3,
     async fetch(req) {
       const url = new URL(req.url)
       if (url.pathname === '/') {
@@ -124,7 +127,16 @@ export async function sigDump(
             dump(x: typeof a): Promise<Omit<SigDump, 'clip' | 'stepMs' | 'durationMs'>>
           }
         ).dump(a),
-      { url: '/clip', name: basename(clip), type, stepMs, durationMs, engine, sigCols }
+      {
+        url: '/clip',
+        name: basename(clip),
+        type,
+        stepMs,
+        durationMs,
+        engine,
+        sigCols,
+        sigRowsOverride,
+      }
     )
     if (!sig) throw new Error('no signature upload')
     const dump: SigDump = { clip, stepMs, durationMs, ...res }
@@ -167,7 +179,8 @@ if (import.meta.main) {
     Number(flag('--step') ?? 250),
     flag('--engine') ?? 'auto',
     duration,
-    Number(flag('--cols') ?? 0)
+    Number(flag('--cols') ?? 0),
+    Number(flag('--rows') ?? 0)
   )
   console.log(`${d.times.length} frames ${d.cols}×${d.rows} via ${d.engine} in ${d.ms} ms`)
 }

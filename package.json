@@ -1,6 +1,6 @@
 {
   "name": "@dested/video-to-prompt",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "description": "Distill a narrated screen recording into an agent-ready prompt package: the keyframes that matter, contact sheets with changes outlined, a timed transcript, and a markdown report built for a model to read.",
   "type": "module",
   "license": "MIT",
@@ -44,7 +44,8 @@
     "playwright-core": "1.64.1",
     "prettier": "^3.8.3",
     "rimraf": "^6.0.1",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "zod": "^4.6.7"
   },
   "dependencies": {
     "mediabunny": "^1.61.0"

@@ -24,7 +24,7 @@ export const LUMA_TOL = 10
  */
 const REGION_GAP = 2
 /** Regions kept per diff, largest first. Enough to bound a page-wide change; past that the screen is just "different". */
-const MAX_REGIONS = 64
+export const MAX_REGIONS = 64
 
 export interface Signature {
   cols: number
@@ -83,6 +83,26 @@ export interface DiffOptions {
   ignore?: Uint8Array | null
   /** Filled with 1 for every changed cell, when given. */
   mask?: Uint8Array
+}
+
+/**
+ * Cells that differ between `a` and `b` (as `diffSignatures` counts them),
+ * counting no further than `limit`: a cheap first look before a full diff.
+ */
+export function changedCells(
+  a: Signature,
+  b: Signature,
+  limit: number,
+  ignore: Uint8Array | null = null
+): number {
+  if (b.cols !== a.cols || b.rows !== a.rows) return limit
+  let n = 0
+  for (let i = 0; i < a.luma.length; i++) {
+    if (Math.abs((a.luma[i] ?? 0) - (b.luma[i] ?? 0)) <= LUMA_TOL || (ignore !== null && ignore[i]))
+      continue
+    if (++n >= limit) return limit
+  }
+  return n
 }
 
 /** What changed from `a` to `b`. Signatures of different shapes are wholly different. */

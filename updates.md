@@ -1,5 +1,14 @@
 # Updates
 
+## 2026-10-22 — 1.2.0: no cap, a page model, video found per block (not tagged)
+
+Asked: make capture top tier on qg (28 min reading a doc on 5120×2160, 600 near-identical frames)
+and prove it on the corpus. Scroll grids + page model, parked views, `seen`, `detail` close-ups,
+`ClipInput.crop`, live-only busy cells, per-block video mask. Replays (frames · lost view-s):
+qg 600 → 482 · 0; w606 239 → 45 · 0; w1315 84 → 90 · 0 (old lost 1.3 s); toothio (Meet) 600
+capped (2145 uncapped) → 175 (each keyframe remembers its video; a face gone still isn't a new picture). Side-by-side viewer: test/compare/build.ts. 72 tests.
+Touched: src/scroll.ts, src/select.ts, src/signature.ts, src/decode.ts, src/frames.ts, src/distill.ts, src/report.ts, src/read.ts, src/types.ts, src/grids.ts, test/unit/*, test/browser/*, test/compare/build.ts, plans/2026-10-22-page-model.md, decisions.md, cliffnotes.md, package.json
+
 ## 2026-10-15 — 1.1.5: lines nobody said are dropped
 
 Asked: fix Whisper's "Thank you." over silence. `dropUnheard` judges every line against the audio

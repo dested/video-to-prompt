@@ -37,6 +37,8 @@ export interface GridFrame {
   label: string
   /** What changed since the previous frame, outlined on the tile. */
   change?: FrameBox
+  /** `blob` is a detail: the tile shows `base` with it laid over `box`, the whole screen as it was. */
+  detail?: { base: Blob; box: FrameBox }
 }
 
 export interface GridOptions {
@@ -60,7 +62,10 @@ export async function makeGrids(frames: GridFrame[], opts: GridOptions = {}): Pr
 
   for (let start = 0; start < frames.length; start += GRID_PER_SHEET) {
     const batch = frames.slice(start, start + GRID_PER_SHEET)
-    const bitmaps = await Promise.all(batch.map((f) => createImageBitmap(f.blob)))
+    const bitmaps = await Promise.all(batch.map((f) => createImageBitmap(f.detail?.base ?? f.blob)))
+    const overlays = await Promise.all(
+      batch.map((f) => (f.detail ? createImageBitmap(f.blob) : Promise.resolve(null)))
+    )
     try {
       // One tile shape per sheet, from its first frame, so the grid stays a grid.
       const first = bitmaps[0]
@@ -99,12 +104,24 @@ export async function makeGrids(frames: GridFrame[], opts: GridOptions = {}): Pr
         ctx.fillText(frame.label, x + 4, y + LABEL_H / 2)
         const ty = y + LABEL_H
         ctx.drawImage(bitmap, x, ty, tileW, tileH)
+        const overlay = overlays[i]
+        const box = frame.detail?.box
+        if (overlay && box) {
+          ctx.drawImage(
+            overlay,
+            x + box.x * tileW,
+            ty + box.y * tileH,
+            box.w * tileW,
+            box.h * tileH
+          )
+        }
         if (frame.change) outline(ctx, frame.change, x, ty, tileW, tileH)
       })
 
       sheets.push(await toJpeg(canvas, GRID_QUALITY))
     } finally {
       bitmaps.forEach((b) => b.close())
+      overlays.forEach((b) => b?.close())
     }
   }
 
