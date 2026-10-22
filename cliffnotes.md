@@ -58,7 +58,12 @@ src/
   scroll.ts      matchShift (band + vertical shift between scroll grids), residualAt (rows
                  changed in place), changedInPlace
   frames.ts      extractFrames: candidates (250 ms webcodecs / 1 s seek) → signature → Selector;
-                 only keepers become JPEGs. candidateTimes, frameBudget (40/min, [150,600])
+                 only keepers become JPEGs. candidateTimes, frameBudget (deprecated cap)
+  keeper.ts      Keeper: the Selector's three slots + JPEG encode (whole screen ≤1920, detail
+                 crop ≤1600 from a ≤3840 hold), detailCrop, toRecordingFrame. Shared by both
+  live.ts        LiveFrames: the same rule on a running screen share. push(t, <video>) every
+                 LIVE_STEP_MS (250), openLine/closeLine from the recorder's voice detection,
+                 store(key, jpeg) per keep, frames() → numbered 1..N + blob key
   grids.ts       Contact sheets: 2000 px default, 3 cols (5 portrait), labels, magenta change boxes
   audio.ts       decodeMono via mediabunny AudioSampleSink, 30 s resample chunks, AAC priming trim,
                  decodeAudioData fallback; encodeWav (16-bit PCM)
@@ -81,7 +86,8 @@ test/
   unit/          bun tests: helpers.ts (synthetic signatures, replay), signature/select/report/unheard
   browser/       Playwright harness: fixtures.ts (builds the Ledgerly fixture + truth/narration),
                  harness-core.ts/run.ts (distill in headless Chromium; --crop), eval.ts,
-                 sigdump.ts (--cols/--rows for the scroll grid), tune.ts
+                 sigdump.ts (--cols/--rows for the scroll grid), tune.ts, live.ts + live-page.ts
+                 (LiveFrames fed a clip by seeking a <video>; Phoenix part 2: 81/81 picks match)
   compare/       build.ts: static side-by-side viewer (source video, old vs new frames, timeline,
                  per-minute grid) from two packages of one recording
   .fixtures/ .runs/   generated, gitignored

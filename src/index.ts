@@ -27,6 +27,8 @@ export {
   type ExtractOptions,
   type ExtractedFrames,
 } from './frames.js'
+export { detailCrop, type Decorate } from './keeper.js'
+export { LIVE_STEP_MS, LiveFrames, type LiveFrame, type LiveFramesOptions } from './live.js'
 export {
   openFrameSource,
   type FrameEngine,

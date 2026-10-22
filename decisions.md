@@ -150,6 +150,18 @@ block itself changes (a face holding still for a second then made a frame), look
 Selector is online; a scroll takes back the votes just before it instead), one global video map
 for the take (the terminal shares the call's blocks).
 
+## 2026-10-22 — Live recorders run the extractor's rule, from the library
+
+**Why:** the extension and Handback's /record picked frames with their own 64×64 rule and a
+length-scaled cap (600 at 15+ min), so none of 1.2.0 reached a recording made live. The Selector
+was online already; `LiveFrames` adds the pixels (slots and encoding shared with the extractor
+through `Keeper`) and narration windows opened and closed by the recorder's voice detection
+(`Selector.openLine/closeLine`, a line under 500 ms is a blip). Fed the same clip it picks what
+the extractor picks: Phoenix part 2, 81 of 81. One copy, in the library, for both recorders.
+**Rejected:** distilling the recorded file after stop (the harness's exact path, but a wait after
+every take that grows with its length); keeping click/nav-forced frames (the new rule keeps what
+a click changed; a click that changed nothing is an event, not a picture).
+
 ## 2026-10-22 — The test harness compares against the old output, side by side
 
 **Why:** audits measure rows lost and repeats, but not whether Sal likes what comes out, and

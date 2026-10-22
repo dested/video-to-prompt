@@ -107,6 +107,32 @@ describe('Selector', () => {
     expect(anchor?.t).toBeLessThan(4500)
   })
 
+  test('a line heard live gets its frame the way a transcript line does', () => {
+    const figure = paint(page, 80, 60, 3, 2)
+    const frames = [...hold(page, 8), ...hold(figure, 16)]
+    const { picks } = replay(frames, { heard: [[2500, 4500]] })
+    expect(picks.map((p) => p.reason)).toEqual(['start', 'narration'])
+    expect(picks[1]?.t).toBeGreaterThanOrEqual(2500)
+    expect(picks[1]?.t).toBeLessThan(4500)
+  })
+
+  test('a blip of sound is not a line', () => {
+    const figure = paint(page, 80, 60, 3, 2)
+    const frames = [...hold(page, 8), ...hold(figure, 16)]
+    const { picks } = replay(frames, { heard: [[2500, 2750]] })
+    expect(picks.map((p) => [p.t, p.reason])).toEqual([
+      [0, 'start'],
+      [5750, 'end'],
+    ])
+  })
+
+  test('a line still being spoken when the take ends gets its frame', () => {
+    const figure = paint(page, 80, 60, 3, 2)
+    const frames = [...hold(page, 8), ...hold(figure, 16)]
+    const { picks } = replay(frames, { heard: [[2500, Infinity]] })
+    expect(picks.map((p) => p.reason)).toEqual(['start', 'narration'])
+  })
+
   test('a narration line over an unchanged screen adds nothing', () => {
     const { picks } = replay(hold(page, 24), {
       narration: [{ t: 1000, d: 3000, text: 'this is the dashboard' }],

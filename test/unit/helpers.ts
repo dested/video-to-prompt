@@ -41,20 +41,45 @@ export interface Replay {
   actions: SelectAction[]
 }
 
-/** Feed `frames` (one per `stepMs`) through a Selector. */
+/**
+ * Feed `frames` (one per `stepMs`) through a Selector. `heard` replays it the
+ * way a live recorder does: no length up front, and speech [start, end) ms
+ * opened and closed as the candidates reach it.
+ */
 export function replay(
   frames: Signature[],
-  opts: { stepMs?: number; budget?: number; narration?: NarrationWindow[] } = {}
+  opts: {
+    stepMs?: number
+    budget?: number
+    narration?: NarrationWindow[]
+    heard?: [number, number][]
+  } = {}
 ): Replay {
   const step = opts.stepMs ?? 250
+  const live = opts.heard !== undefined
   const sel = new Selector({
-    durationMs: frames.length * step,
+    ...(live ? {} : { durationMs: frames.length * step }),
     budget: opts.budget ?? 150,
     narration: opts.narration,
   })
+  const heard = [...(opts.heard ?? [])]
+  let open = false
   const actions: SelectAction[] = []
-  frames.forEach((sig, i) => actions.push(...sel.push(i * step, sig)))
-  actions.push(...sel.finish())
+  frames.forEach((sig, i) => {
+    const t = i * step
+    const line = heard[0]
+    if (line && !open && t >= line[0]) {
+      sel.openLine(t)
+      open = true
+    }
+    if (line && open && t >= line[1]) {
+      sel.closeLine(t)
+      open = false
+      heard.shift()
+    }
+    actions.push(...sel.push(t, sig))
+  })
+  actions.push(...sel.finish(live ? frames.length * step : undefined))
   return { picks: sel.picks(), actions }
 }
 

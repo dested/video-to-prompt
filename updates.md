@@ -1,6 +1,14 @@
 # Updates
 
-## 2026-10-22 — 1.2.0: no cap, a page model, video found per block (not tagged)
+## 2026-10-22 — 1.3.0: LiveFrames, the extractor's rule for live recorders
+
+Asked: get 1.2.0 into the extension and /record. src/live.ts (LiveFrames: push a <video> every
+250 ms, openLine/closeLine, store per keep, frames()), src/keeper.ts (slots + encode, shared with
+extractFrames), Selector.openLine/closeLine and an optional durationMs. test/browser/live.ts feeds
+it a clip: Phoenix part 2 81/81 picks identical to the extractor. 75 tests.
+Touched: src/live.ts, src/keeper.ts, src/frames.ts, src/select.ts, src/index.ts, test/unit/*, test/browser/live*.ts, cliffnotes.md, decisions.md, package.json
+
+## 2026-10-22 — 1.2.0: no cap, a page model, video found per block
 
 Asked: make capture top tier on qg (28 min reading a doc on 5120×2160, 600 near-identical frames)
 and prove it on the corpus. Scroll grids + page model, parked views, `seen`, `detail` close-ups,

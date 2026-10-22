@@ -107,6 +107,8 @@ const BOX_MAX_AREA = 0.5
 const DETAIL_MAX_AREA = 0.1
 /** A line with no reported length is assumed to run this long per word. */
 const WORD_MS = 380
+/** Live speech shorter than this is a cough or an "um", not a line. */
+const MIN_LINE_MS = 500
 /** A narration line whose screen shows no measurable change still gets a fresh frame once the last one is this old. */
 const STALE_MS = 8000
 /** Heat halves this often. */
@@ -296,14 +298,15 @@ export function isMajor(d: SigDiff): boolean {
 }
 
 export interface SelectorOptions {
-  durationMs: number
+  /** The clip's length. A live recording doesn't know it yet: leave it out and `finish` says when it ended. */
+  durationMs?: number
   /** Most keyframes to keep. Default: no limit — a frame is kept because it shows something new, never dropped for count. */
   budget?: number
   narration?: NarrationWindow[]
 }
 
 export class Selector {
-  private readonly durationMs: number
+  private durationMs: number
   private readonly budget: number
   private readonly kept: Kept[] = []
   private readonly windows: Window[]
@@ -346,18 +349,43 @@ export class Selector {
   private byRecency: { version: number; kept: Kept[] } | null = null
 
   constructor(opts: SelectorOptions) {
-    this.durationMs = opts.durationMs
+    const durationMs = opts.durationMs ?? Infinity
+    this.durationMs = durationMs
     this.budget = Math.max(2, opts.budget ?? Infinity)
     this.windows = (opts.narration ?? [])
       .map((line) => {
         const words = (line.text ?? '').trim().split(/\s+/).filter(Boolean).length
         const d = line.d ?? Math.max(1000, words * WORD_MS)
         const start = Math.max(0, line.t)
-        const end = Math.min(opts.durationMs, line.t + d)
+        const end = Math.min(durationMs, line.t + d)
         return { start, end, best: null, bestScore: -1, target: start + Math.min(d / 2, 1000) }
       })
       .filter((w) => w.end > w.start)
       .sort((a, b) => a.start - b.start)
+  }
+
+  /**
+   * Live: someone started talking at `t`. A narration window opens and stays
+   * open until `closeLine`, so the line gets a picture like a transcript line
+   * does (rule 5). Lines come in time order, one at a time.
+   */
+  openLine(t: number): void {
+    const last = this.windows.at(-1)
+    if (last && last.end === Infinity) return
+    this.windows.push({ start: t, end: Infinity, best: null, bestScore: -1, target: t + 1000 })
+  }
+
+  /** Live: the talking `openLine` heard stopped at `t`. A blip too short to be a line is forgotten. */
+  closeLine(t: number): void {
+    const open = this.windows.at(-1)
+    if (!open || open.end !== Infinity) return
+    if (t - open.start < MIN_LINE_MS) {
+      this.windows.pop()
+      if (this.anchor === open) this.anchor = null
+      return
+    }
+    open.end = t
+    open.target = open.start + Math.min((t - open.start) / 2, 1000)
   }
 
   /** Keyframes so far, in time order. */
@@ -474,9 +502,14 @@ export class Selector {
     return out
   }
 
-  /** End of stream: settle what's pending, close the windows, make sure the ending shows. */
-  finish(): SelectAction[] {
+  /**
+   * End of stream: settle what's pending, close the windows, make sure the
+   * ending shows. A live recording passes when it ended.
+   */
+  finish(endMs?: number): SelectAction[] {
     const out: SelectAction[] = []
+    if (endMs !== undefined) this.durationMs = endMs
+    else if (this.durationMs === Infinity) this.durationMs = Math.max(0, this.prevT)
     if (this.pending) {
       const opening = !this.kept.length
       if (opening) {
