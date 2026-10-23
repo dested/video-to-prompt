@@ -1,6 +1,6 @@
 {
   "name": "@dested/video-to-prompt",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Distill a narrated screen recording into an agent-ready prompt package: the keyframes that matter, contact sheets with changes outlined, a timed transcript, and a markdown report built for a model to read.",
   "type": "module",
   "license": "MIT",

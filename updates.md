@@ -1,5 +1,14 @@
 # Updates
 
+## 2026-10-22 — 1.3.1: clicks and navigations are `info` events
+
+Asked (Handback's live recorders stop forcing frames on clicks): PageEvent gains level `info`, what
+the person did. readRecordingJson keeps it, the report timeline prints it (`[info] @ 0:14 click: …`),
+and the "N errors captured" headline, the console-scope note and the MANIFEST's error count leave it
+out. sigdump streams its grids out in 512-sample chunks (a 42-min take sent as one body crashed the
+tab). 76 tests.
+Touched: src/types.ts, src/read.ts, src/report.ts, test/unit/report.test.ts, test/browser/sigdump.ts, package.json
+
 ## 2026-10-22 — 1.3.0: LiveFrames, the extractor's rule for live recorders
 
 Asked: get 1.2.0 into the extension and /record. src/live.ts (LiveFrames: push a <video> every

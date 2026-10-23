@@ -46,7 +46,12 @@ const FRAME_REASONS: ReadonlySet<string> = new Set<RecordingFrame['reason']>([
   'narration',
   'end',
 ])
-const EVENT_LEVELS: ReadonlySet<string> = new Set<PageEvent['level']>(['error', 'warn', 'network'])
+const EVENT_LEVELS: ReadonlySet<string> = new Set<PageEvent['level']>([
+  'error',
+  'warn',
+  'network',
+  'info',
+])
 const isReason = (v: string | undefined): v is RecordingFrame['reason'] =>
   v !== undefined && FRAME_REASONS.has(v)
 const isLevel = (v: string | undefined): v is PageEvent['level'] =>

@@ -215,6 +215,22 @@ describe('files beside the report', () => {
     expect(buildTranscriptTxt(take().meta)).toMatchSnapshot()
     expect(buildTranscriptTxt(take({ transcript: [] }).meta)).toBe('(no narration)\n')
   })
+
+  test('a click is timeline evidence, not an error', () => {
+    const clicked = take({
+      events: [
+        ...take().meta.events,
+        { level: 'info', message: 'click: button#apply "Apply"', ts: T0 + 14000 },
+        { level: 'info', message: 'nav: https://shop.example/cart', ts: T0 + 20000 },
+      ],
+    })
+    const back = readRecordingJson(buildRecordingJson(session, clicked))
+    expect(back?.recording.meta.events.map((e) => e.level)).toEqual(['error', 'info', 'info'])
+    const report = back ? buildReport(session, [back.recording]) : ''
+    expect(report).toContain('`[info] @ 0:14` click: button#apply "Apply"')
+    expect(report).toContain('1 error captured')
+    expect(buildManifestTxt(session, [clicked])).toContain('1 error(s)')
+  })
 })
 
 describe('ranking', () => {

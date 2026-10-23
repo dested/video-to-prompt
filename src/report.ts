@@ -633,6 +633,9 @@ function lineAt(lines: Line[], pos: number): Line | undefined {
   return inside ?? near
 }
 
+/** A console error or warning or a failed request; not a click or navigation (`info`). */
+const isProblem = (ev: PageEvent): boolean => ev.level !== 'info'
+
 function nearestError(pos: number, traces: Trace[]): Trace | undefined {
   let best: Trace | undefined
   for (const t of traces) {
@@ -771,7 +774,7 @@ function urlLines(opts: ResolvedOptions): string[] {
 
 function scopeLines(recordings: Recording[]): string[] {
   const scopes = recordings.map((r) => r.meta.eventScope).filter((s): s is string => Boolean(s))
-  const events = recordings.reduce((n, r) => n + r.meta.events.length, 0)
+  const events = recordings.reduce((n, r) => n + r.meta.events.filter(isProblem).length, 0)
   const dropped = recordings.reduce((n, r) => n + (r.meta.droppedEvents ?? 0), 0)
   if (!scopes.length || (!events && !dropped)) return []
   const from = [...new Set(scopes)].map((s) => `\`${s}\``).join(', ')
@@ -996,7 +999,8 @@ export function buildReport(
   if (shots.length) counts.push(`${shots.length} keyframe${shots.length === 1 ? '' : 's'}`)
   if (lines.length)
     counts.push(`${lines.length} ${lines.length === 1 ? opts.words.line : opts.words.lines}`)
-  if (traces.length) counts.push(`${traces.length} error${traces.length === 1 ? '' : 's'} captured`)
+  const problems = traces.filter((t) => isProblem(t.ev)).length
+  if (problems) counts.push(`${problems} error${problems === 1 ? '' : 's'} captured`)
   if (!counts.length) counts.push('empty')
   const when = hhmm(first) === hhmm(last) ? dateTime(first) : `${dateTime(first)}–${hhmm(last)}`
   // A clip recorded off a device has no origin; an empty one must not leave a
@@ -1243,7 +1247,7 @@ export function buildManifestTxt(
     ])
     rows.push([
       `${dir}/recording.json`,
-      `frame times, ${hasChangeBoxes(rec) ? 'change boxes, ' : ''}${opts.words.line} windows, ${rec.events.length} error(s)${rec.eventScope ? ` from ${rec.eventScope}` : ''}${rec.droppedEvents ? ` (${rec.droppedEvents} dropped from other tabs)` : ''}`,
+      `frame times, ${hasChangeBoxes(rec) ? 'change boxes, ' : ''}${opts.words.line} windows, ${rec.events.filter(isProblem).length} error(s)${rec.eventScope ? ` from ${rec.eventScope}` : ''}${rec.droppedEvents ? ` (${rec.droppedEvents} dropped from other tabs)` : ''}`,
     ])
     rows.push([opts.videoPath(part.index, rec.videoFile), 'raw video (for humans)'])
   }

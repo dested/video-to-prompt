@@ -61,8 +61,14 @@ export const FORMAT = 'video-to-prompt/2'
 /** What `readRecordingJson` calls a file with no `format` stamp: everything written before format 2. */
 export const FORMAT_1 = 'video-to-prompt/1'
 
+/**
+ * Something the page said while recording. `error`, `warn` and `network` are
+ * problems (console errors and warnings, failed requests); `info` is what the
+ * person did there (a click, a navigation): timeline evidence, never counted
+ * as a problem.
+ */
 export interface PageEvent {
-  level: 'error' | 'warn' | 'network'
+  level: 'error' | 'warn' | 'network' | 'info'
   message: string
   detail?: string
   ts: number

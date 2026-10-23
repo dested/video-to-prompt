@@ -42,7 +42,16 @@ window.dump = async ({ url, name, type, stepMs, durationMs, engine, sigCols, sig
   if (times[times.length - 1] < durationMs - 50) times.push(durationMs - 50)
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  const out = []
+  // Grids go out as they're read, a chunk at a time: a 42-minute take held in
+  // the page and sent as one body crashed the tab.
+  const CHUNK = 512
+  let buf = null
+  let filled = 0
+  const flush = async () => {
+    if (!buf || !filled) return
+    await fetch('/sig', { method: 'POST', body: buf.slice(0, filled * cols * rows) })
+    filled = 0
+  }
   let cols = 0, rows = 0, width = 0, height = 0
   const got = []
   for await (const f of source.frames(times)) {
@@ -51,19 +60,18 @@ window.dump = async ({ url, name, type, stepMs, durationMs, engine, sigCols, sig
       canvas.width = cols; canvas.height = rows
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
+      buf = new Uint8Array(CHUNK * cols * rows)
     }
     f.draw(ctx, cols, rows)
     const rgba = ctx.getImageData(0, 0, cols, rows).data
-    const luma = new Uint8Array(cols * rows)
-    for (let i = 0; i < luma.length; i++) luma[i] = (77 * rgba[i*4] + 150 * rgba[i*4+1] + 29 * rgba[i*4+2]) >> 8
-    out.push(luma)
+    const at = filled * cols * rows
+    for (let i = 0; i < cols * rows; i++) buf[at + i] = (77 * rgba[i*4] + 150 * rgba[i*4+1] + 29 * rgba[i*4+2]) >> 8
     got.push(f.t)
+    if (++filled === CHUNK) await flush()
   }
+  await flush()
   const engineUsed = source.engine
   source.close()
-  const all = new Uint8Array(out.length * cols * rows)
-  out.forEach((l, i) => all.set(l, i * cols * rows))
-  await fetch('/sig', { method: 'PUT', body: all })
   return { engine: engineUsed, cols, rows, width, height, times: got, ms: Math.round(performance.now() - started) }
 }
 `
@@ -86,11 +94,9 @@ export async function sigDump(
     target: 'browser',
   })
   if (!built.success) throw new Error(built.logs.map(String).join('\n'))
-  let sig: Uint8Array | null = null
+  const chunks: Uint8Array[] = []
   const server = Bun.serve({
     port: 0,
-    // An hour of grids comes back as one PUT.
-    maxRequestBodySize: 4 * 1024 ** 3,
     async fetch(req) {
       const url = new URL(req.url)
       if (url.pathname === '/') {
@@ -106,8 +112,8 @@ export async function sigDump(
           headers: { 'content-type': 'text/javascript' },
         })
       if (url.pathname === '/clip') return new Response(Bun.file(clip))
-      if (url.pathname === '/sig' && req.method === 'PUT') {
-        sig = new Uint8Array(await req.arrayBuffer())
+      if (url.pathname === '/sig' && req.method === 'POST') {
+        chunks.push(new Uint8Array(await req.arrayBuffer()))
         return new Response('ok')
       }
       return new Response('nf', { status: 404 })
@@ -138,8 +144,14 @@ export async function sigDump(
         sigRowsOverride,
       }
     )
-    if (!sig) throw new Error('no signature upload')
     const dump: SigDump = { clip, stepMs, durationMs, ...res }
+    const sig = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0))
+    let at = 0
+    for (const c of chunks) {
+      sig.set(c, at)
+      at += c.length
+    }
+    if (sig.length !== res.times.length * res.cols * res.rows) throw new Error('signature upload incomplete')
     await mkdir(dirname(resolve(out)), { recursive: true })
     await writeFile(out, sig)
     await writeFile(`${out}.json`, JSON.stringify(dump))
