@@ -109,6 +109,14 @@ grid) → 336 → 269 (page model) → 469 (live busy).
 | w1315 | 13 min Windows: terminal, notes, a doc | 84 | 90 (52 + 38) | 0 (old 1.3) | 32 → 14 |
 | toothio | 43 min Meet, six webcams, a terminal now and then | 600 (cap; 2145 uncapped) | 175 (62 + 113) | 0 off the call | n/a |
 
+Coterie takes (Mac Chrome window shares, recorder panel cropped; real pipeline, 1.2.0):
+
+| Take | What | Old frames | New frames (full + close-ups) | Lost view-s old → new | Repeats old → new |
+| --- | --- | --- | --- | --- | --- |
+| Dawn Patrol | 42 min tax-plan run | 600 (cap) | 524 (425 + 99) | 2.6 → 0.6 of 1796 | 218 → 79 |
+| Phoenix 1 | 3 min bookkeeping review | 58 | 60 (27 + 33) | 0 → 0 | 17 → 2 |
+| Phoenix 2 | 3 min bookkeeping review | 150 | 81 (59 + 22) | 0 → 0 | 48 → 6 |
+
 The row audits mean nothing on the call itself (every sample has faces in a new pose); split by
 screen, the 87 s the terminal is up lose nothing. Judge the call in the viewer. Real-pipeline runs (crop before the signature, so a finer grid) land a few frames
 higher than the replays: w606 53, toothio 178.
@@ -121,9 +129,8 @@ grid. Pages for the four takes: `W:\junk\video-to-prompt\compare\index.html`.
 
 ## Still open
 
-- Coterie takes, with Sal's OK.
-- Handback: stop importing `frameBudget`; fixed-height caption box; auto-crop + review
-  sheet; viewer and MCP support for `detail` and `seen`.
+- Handback: fixed-height caption box; auto-crop + review sheet. (frameBudget is gone, the viewer
+  and MCP read `detail` and `seen`, and both live recorders run LiveFrames: 2026-10-22.)
 - The first few seconds of a webcam call still make frames while the video vote builds.
 - A clock that ticks once a minute (Meet's top-left time) is too slow for the heat mask, so a
   narration line over it earns a small close-up: about 20 of toothio's 178.
